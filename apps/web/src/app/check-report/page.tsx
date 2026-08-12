@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { SiteFooter, SiteHeader } from '@/components/site-chrome';
+import { ConfirmationScreen } from '@/components/confirmation';
 
 const AI_PLATFORMS = [
   { id: 'chatgpt', label: 'ChatGPT' },
@@ -55,12 +55,6 @@ export default function CheckReportPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [jobId, setJobId] = useState('');
-  const [jobMeta, setJobMeta] = useState<{
-    status?: string;
-    progressStep?: string | null;
-    reportToken?: string | null;
-    overall?: number | null;
-  } | null>(null);
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -77,32 +71,10 @@ export default function CheckReportPage() {
     });
   }
 
-  useEffect(() => {
-    if (!jobId || status !== 'ok') return;
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setJobMeta(data);
-      } catch {
-        /* ignore */
-      }
-    };
-    void tick();
-    const id = setInterval(tick, 4000);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [jobId, status]);
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus('loading');
     setMessage('');
-    setJobMeta(null);
     try {
       const res = await fetch('/api/start', {
         method: 'POST',
@@ -117,7 +89,6 @@ export default function CheckReportPage() {
       }
       setStatus('ok');
       setJobId(data.jobId);
-      setMessage('Audit started. Keep the worker running — we email the report when ready.');
     } catch {
       setStatus('error');
       setMessage('Network error. Try again.');
@@ -185,6 +156,10 @@ export default function CheckReportPage() {
               aria-hidden
             />
             <div className="relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/95 p-6 shadow-[0_30px_80px_-40px_rgba(37,99,235,0.45)] backdrop-blur-xl md:p-8">
+              {status === 'ok' && jobId ? (
+                <ConfirmationScreen jobId={jobId} />
+              ) : (
+                <>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted">Start free</p>
@@ -365,31 +340,6 @@ export default function CheckReportPage() {
                   }`}
                 >
                   <p>{message}</p>
-                  {jobId && <p className="mt-1 font-mono text-xs opacity-80">Job ID: {jobId}</p>}
-                </div>
-              )}
-
-              {jobMeta && (
-                <div className="mt-4 rounded-2xl border border-line bg-soft/80 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className="font-medium text-ink">Status: {jobMeta.status}</span>
-                    {jobMeta.progressStep && (
-                      <span className="text-xs text-muted">{jobMeta.progressStep}</span>
-                    )}
-                  </div>
-                  {typeof jobMeta.overall === 'number' && (
-                    <p className="mt-2 text-sm text-muted">
-                      Overall score: <strong className="text-ink">{jobMeta.overall}</strong>
-                    </p>
-                  )}
-                  {jobMeta.reportToken && (
-                    <Link
-                      href={`/report/${jobMeta.reportToken}`}
-                      className="btn-gradient mt-4 inline-flex rounded-full px-5 py-2.5 text-sm font-semibold"
-                    >
-                      Open report
-                    </Link>
-                  )}
                 </div>
               )}
 
@@ -397,6 +347,8 @@ export default function CheckReportPage() {
                 We email the report to the work address you provide. Worker must be running for analysis
                 to complete.
               </p>
+                </>
+              )}
             </div>
           </motion.div>
         </div>

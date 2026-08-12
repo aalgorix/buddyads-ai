@@ -61,10 +61,23 @@ model Report {
   grade     String
   summary   String
   payload   String
+  /// Absolute path to generated PDF (optional)
+  pdfPath   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+model EmailLog {
+  id         String   @id @default(cuid())
+  jobId      String
+  status     String
+  providerId String?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([jobId])
 }

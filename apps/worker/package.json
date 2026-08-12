@@ -10,6 +10,7 @@
     "@buddyads/db": "workspace:*",
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.7",
+    "pdf-lib": "^1.17.1",
     "resend": "^4.0.1"
   },
   "devDependencies": {
