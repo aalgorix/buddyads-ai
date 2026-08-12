@@ -1,0 +1,25 @@
+{
+  "name": "buddyads-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BuddyAds — AI Visibility single-agent system",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @buddyads/web dev",
+    "worker": "pnpm --filter @buddyads/worker start",
+    "db:generate": "prisma generate --schema=prisma/schema.prisma",
+    "db:push": "prisma db push --schema=prisma/schema.prisma",
+    "db:studio": "prisma studio --schema=prisma/schema.prisma",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.3",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  }
+}
