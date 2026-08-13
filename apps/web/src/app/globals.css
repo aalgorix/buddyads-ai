@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -176,4 +176,30 @@ body {
 
 .ring-spin {
   animation: ring-spin 18s linear infinite;
+}
+
+.report-root {
+  font-family: var(--font-body);
+  background: #f4f1ea;
+  color: #14161c;
+}
+
+.report-root .font-serif,
+.report-root h1,
+.report-root h2 {
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+}
+
+@media print {
+  .report-root header,
+  .report-root aside,
+  .print\\:hidden {
+    display: none !important;
+  }
+  .report-root {
+    background: white;
+  }
+  .report-section {
+    break-inside: avoid;
+  }
 }

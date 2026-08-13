@@ -16,6 +16,7 @@ module.exports = {
       fontFamily: {
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
         sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
+        serif: ['Instrument Serif', 'Georgia', 'Times New Roman', 'serif'],
       },
       maxWidth: {
         site: '74rem',

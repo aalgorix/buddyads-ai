@@ -50,9 +50,11 @@ export function LogoMark({ className = 'h-9 w-9' }: { className?: string }) {
 export function BrandLockup({
   size = 'md',
   href = '/',
+  inverted = false,
 }: {
   size?: 'sm' | 'md' | 'lg';
   href?: string;
+  inverted?: boolean;
 }) {
   const mark = size === 'lg' ? 'h-11 w-11' : size === 'sm' ? 'h-8 w-8' : 'h-9 w-9';
   const title =
@@ -69,11 +71,15 @@ export function BrandLockup({
         />
       </span>
       <span className="flex min-w-0 flex-col leading-none">
-        <span className={`font-display font-bold tracking-tight text-ink ${title}`}>
+        <span
+          className={`font-display font-bold tracking-tight ${title} ${inverted ? 'text-[#f4f1ea]' : 'text-ink'}`}
+        >
           Buddy
           <span className="bg-gradient-to-r from-accent to-cyan bg-clip-text text-transparent">Ads</span>
         </span>
-        <span className={`mt-1 font-semibold uppercase tracking-[0.16em] text-muted ${tag}`}>
+        <span
+          className={`mt-1 font-semibold uppercase tracking-[0.16em] ${tag} ${inverted ? 'text-[#9aa0ab]' : 'text-muted'}`}
+        >
           AI Visibility
         </span>
       </span>
