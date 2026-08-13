@@ -10,6 +10,10 @@
   "scripts": {
     "dev": "pnpm --filter @buddyads/web dev",
     "worker": "pnpm --filter @buddyads/worker start",
+    "build:web": "prisma generate --schema=prisma/schema.prisma && pnpm --filter @buddyads/web build",
+    "start:web": "pnpm --filter @buddyads/web start",
+    "start:worker": "pnpm --filter @buddyads/worker start",
+    "db:up": "docker compose up -d",
     "db:generate": "prisma generate --schema=prisma/schema.prisma",
     "db:push": "prisma db push --schema=prisma/schema.prisma",
     "db:studio": "prisma studio --schema=prisma/schema.prisma",

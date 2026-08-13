@@ -3,44 +3,46 @@
 Fresh monorepo: premium website + single Visibility Agent worker.
 
 **Brand name:** BuddyAds  
-**Do not** assume a specific brand domain (e.g. no invented `.ai` domain).  
-Local: `http://localhost:3000` — production: set `PUBLIC_APP_URL` to your real host.
+Local: `http://localhost:3005` — production: set `PUBLIC_APP_URL` to your Railway web URL.
 
 ## Stack
 
 | Piece | Role |
 |-------|------|
-| `apps/web` | Premium site, form, report page |
-| `apps/worker` | Single agent loop (tools + OpenRouter) |
-| `prisma` | SQLite jobs + reports |
+| `apps/web` | Site, intake form, report page |
+| `apps/worker` | Single agent loop (crawl + OpenRouter + email/PDF) |
+| `prisma` | Postgres (local Docker or Railway) |
 
-## Agent (honest definition)
-
-The worker runs a **single agent loop**:
-
-1. Goal: produce a visibility report for this brand  
-2. LLM decides the next **tool** (crawl, query LLMs, finalize)  
-3. Code runs the tool, returns results  
-4. Repeat until finalize or budget  
-
-Multi-LLM research uses **OpenRouter** (one key, many models).
-
-Without `OPENROUTER_API_KEY` the run still finishes with crawl + rule scores (weaker report).
-
-## Setup
+## Setup (local)
 
 ```bash
 cd D:\Projects\BuddyAds-AI
 copy .env.example .env
+docker compose up -d
 pnpm install
 pnpm db:push
 ```
 
-Add `OPENROUTER_API_KEY` (and optional `RESEND_API_KEY`) to `.env`.
-
-## Run (two terminals)
+Add `OPENROUTER_API_KEY` and `RESEND_API_KEY` to `.env`.
 
 ```bash
 pnpm dev      # http://localhost:3005
 pnpm worker   # agent
 ```
+
+## Deploy on Railway (web + worker + Postgres)
+
+1. Push this repo to GitHub.
+2. Railway → **New Project** → **Deploy from GitHub**.
+3. **+ Create** → **Database** → **PostgreSQL**.
+4. **Web** service (same repo):
+   - Settings → **Config File** = `railway.web.json`
+   - Variables: `DATABASE_URL` = reference Postgres; `PUBLIC_APP_URL` = generated web domain
+   - Networking → **Generate Domain**
+5. **Worker** service (same repo, second service):
+   - Settings → **Config File** = `railway.worker.json`
+   - Same `DATABASE_URL` reference
+   - Same `PUBLIC_APP_URL` as web
+   - Add `OPENROUTER_API_KEY`, `RESEND_API_KEY`, `FROM_EMAIL`
+   - Do **not** generate a public domain
+6. Open the web domain → `/check-report` and submit a test job.
