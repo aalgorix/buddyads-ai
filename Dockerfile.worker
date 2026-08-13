@@ -15,9 +15,9 @@ COPY apps/worker ./apps/worker
 
 RUN pnpm install --no-frozen-lockfile
 RUN pnpm exec prisma generate --schema=prisma/schema.prisma
+RUN sed -i 's/\r$//' /app/apps/worker/start.sh && chmod +x /app/apps/worker/start.sh
 
 ENV NODE_ENV=production
 ENV CI=true
-ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
-CMD ["sh", "-c", "pnpm exec prisma db push --schema=prisma/schema.prisma && cd /app/apps/worker && exec pnpm exec tsx src/index.ts"]
+CMD ["sh", "/app/apps/worker/start.sh"]
