@@ -1,6 +1,10 @@
 FROM node:20-bookworm-slim
 
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+RUN apt-get update -y \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/* \
+  && corepack enable \
+  && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
@@ -13,5 +17,7 @@ RUN pnpm install --no-frozen-lockfile
 RUN pnpm exec prisma generate --schema=prisma/schema.prisma
 
 ENV NODE_ENV=production
+ENV CI=true
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
 
-CMD ["sh", "-c", "pnpm exec prisma db push --schema=prisma/schema.prisma && pnpm --filter @buddyads/worker start"]
+CMD ["sh", "-c", "pnpm exec prisma db push --schema=prisma/schema.prisma && cd /app/apps/worker && exec pnpm exec tsx src/index.ts"]

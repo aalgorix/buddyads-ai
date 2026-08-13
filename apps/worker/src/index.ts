@@ -6,6 +6,16 @@ import { runVisibilityAgent } from './agent/run';
 
 config({ path: path.resolve(__dirname, '../../../.env') });
 
+function log(...args: unknown[]) {
+  const line = args.map((a) => (typeof a === 'string' ? a : String(a))).join(' ');
+  process.stdout.write(`${line}\n`);
+}
+
+function logErr(...args: unknown[]) {
+  const line = args.map((a) => (a instanceof Error ? a.stack || a.message : String(a))).join(' ');
+  process.stderr.write(`${line}\n`);
+}
+
 const POLL_MS = Number(env('WORKER_POLL_MS', '5000')) || 5000;
 let stopping = false;
 
@@ -31,26 +41,43 @@ async function claimNextJob(): Promise<string | null> {
 }
 
 async function loop() {
-  console.log(`[buddyads-worker] polling every ${POLL_MS}ms`);
+  log(`[buddyads-worker] polling every ${POLL_MS}ms`);
+  let idleTicks = 0;
   while (!stopping) {
     try {
       const jobId = await claimNextJob();
       if (jobId) {
-        console.log('[buddyads-worker] running agent for', jobId);
+        idleTicks = 0;
+        log(`[buddyads-worker] running agent for ${jobId}`);
         await runVisibilityAgent(jobId);
-        console.log('[buddyads-worker] completed', jobId);
+        log(`[buddyads-worker] completed ${jobId}`);
+      } else {
+        idleTicks += 1;
+        if (idleTicks === 1 || idleTicks % 12 === 0) {
+          log(`[buddyads-worker] idle (no PENDING jobs) tick=${idleTicks}`);
+        }
       }
     } catch (err) {
-      console.error('[buddyads-worker] error', err);
+      logErr('[buddyads-worker] error', err);
     }
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
 }
 
-console.log('[buddyads-worker] starting single Visibility Agent…');
-void loop();
+log('[buddyads-worker] starting single Visibility Agent…');
+log(`[buddyads-worker] node=${process.version} cwd=${process.cwd()}`);
+
+loop().catch((err) => {
+  logErr('[buddyads-worker] fatal', err);
+  process.exit(1);
+});
 
 process.on('SIGINT', () => {
+  stopping = true;
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
   stopping = true;
   process.exit(0);
 });

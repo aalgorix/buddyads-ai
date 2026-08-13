@@ -5,7 +5,7 @@
     "dockerfilePath": "Dockerfile.worker"
   },
   "deploy": {
-    "startCommand": "pnpm exec prisma db push --schema=prisma/schema.prisma && pnpm --filter @buddyads/worker start",
+    "startCommand": "pnpm exec prisma db push --schema=prisma/schema.prisma && cd /app/apps/worker && exec pnpm exec tsx src/index.ts",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
