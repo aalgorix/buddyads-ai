@@ -1,0 +1,22 @@
+FROM node:20-bookworm-slim
+
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY prisma ./prisma
+COPY packages ./packages
+COPY apps/web ./apps/web
+
+RUN pnpm install --no-frozen-lockfile
+RUN pnpm exec prisma generate --schema=prisma/schema.prisma
+RUN pnpm --filter @buddyads/web build
+
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@buddyads/web", "start"]
