@@ -34,6 +34,8 @@ model Job {
   websiteUrl   String
   /// JSON intake from /check-report (business context for the agent)
   intake       String?
+  /// Durable stage outputs: crawl pages, AEO/GEO/technical, prompts, parse, evidence, graph
+  pipelineJson String?
   progressStep String?
   error        String?
   agentTrace   String?

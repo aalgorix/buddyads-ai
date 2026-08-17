@@ -5,10 +5,11 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 
 const STEPS = [
-  'Crawling your website',
+  'Crawling your website (multi-page)',
+  'Technical SEO & structured data',
+  'Evaluating AEO & GEO readiness',
   'Querying AI platforms',
-  'Measuring mentions, citations, and competitors',
-  'Scoring AEO, GEO, and technical readiness',
+  'Building evidence & knowledge graph',
   'Writing your intelligence report',
 ];
 

@@ -10,7 +10,7 @@ Local: `http://localhost:3005` — production: set `PUBLIC_APP_URL` to your Rail
 | Piece | Role |
 |-------|------|
 | `apps/web` | Site, intake form, report page |
-| `apps/worker` | Single agent loop (crawl + OpenRouter + email/PDF) |
+| `apps/worker` | Staged pipeline: crawl → technical → AEO → GEO → prompts → multi-LLM research → parse → evidence → graph → email/PDF |
 | `prisma` | Postgres (local Docker or Railway) |
 
 ## Setup (local)

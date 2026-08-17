@@ -267,6 +267,7 @@ export function buildIntelligence(params: {
   intake?: IntakeContext | null;
   agentNotes?: string;
   generatedAt?: string;
+  engineScores?: { aeo?: number; geo?: number; technical?: number } | null;
 }): Omit<ReportPayload, 'executiveSummary' | 'finalTakeaway' | 'strongestPlatform' | 'weakestPlatform' | 'howToDoBetter' | 'plan7Day' | 'roadmap30' | 'strategy90' | 'opportunities' | 'recommendations' | 'llmEstimates' | 'roadmap30Day' | 'roadmap90Day' | 'competitorInsights' | 'summary'> & {
   usableCount: number;
   mentionCount: number;
@@ -350,9 +351,9 @@ export function buildIntelligence(params: {
   const aeoDetail = aeoBreakdown(crawl);
   const geoDetail = geoBreakdown(crawl, brand);
   const technicalDetail = technicalBreakdown(crawl);
-  const aeo = meanScore(aeoDetail);
-  const geo = meanScore(geoDetail);
-  const technical = meanScore(technicalDetail);
+  const aeo = params.engineScores?.aeo ?? meanScore(aeoDetail);
+  const geo = params.engineScores?.geo ?? meanScore(geoDetail);
+  const technical = params.engineScores?.technical ?? meanScore(technicalDetail);
   const entityStrength = geoDetail.find((s) => s.label === 'Entity Strength')?.score ?? null;
   const citationStrength =
     usable.length === 0 ? null : clamp((citationRate || 0) * 0.7 + (allCitations.length > 0 ? 18 : 4) + (crawl.hasAuthor ? 8 : 0));

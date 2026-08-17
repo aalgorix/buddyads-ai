@@ -6,6 +6,8 @@ const RULES: { test: (m: string) => boolean; label: string }[] = [
   { test: (m) => m.includes('claude') || m.startsWith('anthropic/'), label: 'Claude' },
   { test: (m) => m.includes('grok') || m.startsWith('x-ai/') || m.startsWith('xai/'), label: 'Grok' },
   { test: (m) => m.includes('copilot'), label: 'Copilot' },
+  { test: (m) => m.includes('mistral'), label: 'Mistral' },
+  { test: (m) => m.includes('deepseek'), label: 'DeepSeek' },
   { test: (m) => m.includes('openai') || m.includes('gpt'), label: 'ChatGPT' },
 ];
 

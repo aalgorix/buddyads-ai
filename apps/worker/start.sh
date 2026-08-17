@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 echo "[buddyads-worker] container boot cwd=$(pwd)"
+echo "[buddyads-worker] syncing schema…"
+cd /app
+pnpm exec prisma db push --schema=prisma/schema.prisma --skip-generate
 echo "[buddyads-worker] starting tsx…"
 
 TSX_BIN="/app/apps/worker/node_modules/.bin/tsx"
@@ -11,5 +14,4 @@ if [ -x "$TSX_BIN" ]; then
 fi
 
 echo "[buddyads-worker] local tsx missing, using node --import tsx"
-cd /app
 exec node --import tsx "$ENTRY"

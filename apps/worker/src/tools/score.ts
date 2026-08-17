@@ -17,6 +17,7 @@ export async function buildReport(params: {
   agentNotes?: string;
   competitors?: string | null;
   intake?: IntakeContext | null;
+  engineScores?: { aeo?: number; geo?: number; technical?: number } | null;
 }): Promise<ReportPayload> {
   const intel = buildIntelligence({
     analysisId: params.analysisId,
@@ -26,6 +27,7 @@ export async function buildReport(params: {
     research: params.research,
     intake: params.intake || { competitors: params.competitors },
     agentNotes: params.agentNotes,
+    engineScores: params.engineScores,
   });
 
   let narrative = fallbackNarrative(intel);
