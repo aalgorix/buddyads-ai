@@ -71,7 +71,7 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
         {done ? 'Your report is ready!' : failed ? 'Analysis hit a snag' : 'Thank you!'}
       </h1>
 
-      <p className="mx-auto mt-4 max-w-lg text-lg text-muted">
+      <p className="mx-auto mt-4 max-w-lg text-lg text-muted-foreground">
         {done
           ? 'Your AI Visibility Intelligence Report is ready — how AI sees, recommends, and cites your brand.'
           : failed
@@ -80,7 +80,7 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
       </p>
 
       {!done && !failed && (
-        <p className="mt-3 text-sm font-medium text-ink">
+        <p className="mt-3 text-sm font-medium text-foreground">
           You&apos;ll receive it by email shortly — usually within a few minutes.
         </p>
       )}
@@ -98,7 +98,7 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
           {status?.reportUrl && (
             <Link
               href={status.reportUrl}
-              className="btn-gradient inline-flex h-11 items-center rounded-full px-6 text-sm font-semibold"
+              className="inline-flex h-11 items-center rounded-full bg-foreground px-6 text-sm font-semibold text-background"
             >
               View report
             </Link>
@@ -106,7 +106,7 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
           {status?.pdfUrl && (
             <a
               href={status.pdfUrl}
-              className="inline-flex h-11 items-center rounded-full border border-ink/10 px-6 text-sm font-semibold text-ink"
+              className="inline-flex h-11 items-center rounded-full border border-black/[0.1] px-6 text-sm font-semibold text-foreground"
             >
               Download PDF
             </a>
@@ -115,7 +115,7 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
       )}
 
       {done && (
-        <p className="mt-4 text-sm text-muted">Email status: {status?.emailStatus || 'pending'}</p>
+        <p className="mt-4 text-sm text-muted-foreground">Email status: {status?.emailStatus || 'pending'}</p>
       )}
 
       {!done && !failed && (
@@ -123,7 +123,7 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
           {STEPS.map((step, i) => (
             <motion.div
               key={step}
-              className="flex items-center gap-3 rounded-2xl border border-line bg-soft/80 px-4 py-3 text-sm"
+              className="flex items-center gap-3 rounded-2xl border border-black/[0.08] bg-muted/80 px-4 py-3 text-sm dark:border-white/10"
               animate={{ opacity: [0.45, 1, 0.45] }}
               transition={{ duration: 2.2, delay: i * 0.2, repeat: Infinity }}
             >
@@ -131,14 +131,14 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
               {step}…
             </motion.div>
           ))}
-          <p className="pt-2 text-center text-xs text-muted">
+          <p className="pt-2 text-center text-xs text-muted-foreground">
             Status: {status?.status || 'PENDING'}
             {status?.progressStep ? ` · ${status.progressStep}` : ''}
           </p>
         </div>
       )}
 
-      <p className="mt-10 text-sm text-muted">
+      <p className="mt-10 text-sm text-muted-foreground">
         Want to talk strategy?{' '}
         <Link href="/contact" className="font-semibold text-accent hover:opacity-80">
           Book a free AI strategy call
@@ -150,8 +150,8 @@ export function ConfirmationScreen({ jobId }: { jobId: string }) {
 
 function ScoreChip({ label, value }: { label: string; value?: number }) {
   return (
-    <div className="rounded-2xl border border-line bg-white p-3">
-      <p className="text-xs text-muted">{label}</p>
+    <div className="rounded-2xl border border-black/[0.08] bg-white p-3 dark:border-white/10 dark:bg-card">
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className="font-display text-xl font-bold">{value ?? '—'}</p>
     </div>
   );

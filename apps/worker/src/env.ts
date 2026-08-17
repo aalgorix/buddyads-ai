@@ -64,7 +64,7 @@ export function getFromEmail(): string {
   return envAlias(
     'VISIBILITY_FROM_EMAIL',
     'FROM_EMAIL',
-    'BuddyAds <onboarding@resend.dev>',
+    'BuddyAds <rohit@buddyads.agency>',
   );
 }
 

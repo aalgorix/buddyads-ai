@@ -72,13 +72,13 @@ export function BrandLockup({
       </span>
       <span className="flex min-w-0 flex-col leading-none">
         <span
-          className={`font-display font-bold tracking-tight ${title} ${inverted ? 'text-[#f4f1ea]' : 'text-ink'}`}
+          className={`font-display font-bold tracking-tight ${title} ${inverted ? 'text-[#f4f1ea]' : 'text-[#14161c]'}`}
         >
           Buddy
           <span className="bg-gradient-to-r from-accent to-cyan bg-clip-text text-transparent">Ads</span>
         </span>
         <span
-          className={`mt-1 font-semibold uppercase tracking-[0.16em] ${tag} ${inverted ? 'text-[#9aa0ab]' : 'text-muted'}`}
+          className={`mt-1 font-semibold uppercase tracking-[0.16em] ${tag} ${inverted ? 'text-[#9aa0ab]' : 'text-[#6b7280]'}`}
         >
           AI Visibility
         </span>

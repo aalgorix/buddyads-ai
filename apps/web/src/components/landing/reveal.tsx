@@ -1,53 +1,70 @@
 'use client';
 
-import { motion, useReducedMotion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import { motion, type HTMLMotionProps } from 'framer-motion';
+import { fadeUp, scaleIn, staggerContainer, viewportOnce } from '@/lib/motion';
+import { cn } from '@/lib/utils';
+
+interface RevealProps extends HTMLMotionProps<'div'> {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+  variant?: 'up' | 'scale' | 'none';
+}
 
 export function Reveal({
   children,
-  className = '',
+  className,
   delay = 0,
-}: {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
-}) {
-  const reduce = useReducedMotion();
+  variant = 'up',
+  ...props
+}: RevealProps) {
+  const variants = variant === 'scale' ? scaleIn : variant === 'none' ? undefined : fadeUp;
+
   return (
     <motion.div
       className={className}
-      initial={reduce ? false : { opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-60px' }}
-      transition={{ duration: 0.65, delay, ease: [0.16, 1, 0.3, 1] }}
+      initial="hidden"
+      whileInView="visible"
+      viewport={viewportOnce}
+      variants={variants}
+      transition={{ delay }}
+      {...props}
     >
       {children}
     </motion.div>
   );
 }
 
-export function SectionHead({
-  eyebrow,
-  title,
-  description,
-  center = false,
+export function Stagger({
+  children,
+  className,
 }: {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  center?: boolean;
+  children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className={`max-w-2xl ${center ? 'mx-auto text-center' : ''}`}>
-      {eyebrow && (
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">{eyebrow}</p>
-      )}
-      <h2 className="mt-3 font-display text-3xl font-semibold leading-[1.15] tracking-tight text-ink md:text-4xl">
-        {title}
-      </h2>
-      {description && (
-        <p className="mt-3 text-base leading-relaxed text-muted md:text-lg">{description}</p>
-      )}
-    </div>
+    <motion.div
+      className={cn(className)}
+      initial="hidden"
+      whileInView="visible"
+      viewport={viewportOnce}
+      variants={staggerContainer}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function StaggerItem({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <motion.div className={className} variants={fadeUp}>
+      {children}
+    </motion.div>
   );
 }
