@@ -121,15 +121,15 @@ async function loadReportLogo(doc: PDFDocument): Promise<PDFImage | null> {
 }
 
 function drawReportBrandHeader(page: PDFPage, font: PDFFont, bold: PDFFont, logo: PDFImage | null) {
-  const y = H - 54;
+  const y = H - 58;
   if (logo) {
-    const logoH = 22;
+    const logoH = 34;
     const logoW = (logo.width / logo.height) * logoH;
-    page.drawImage(logo, { x: M, y: y - 4, width: logoW, height: logoH });
-    page.drawText('BuddyAds', { x: M + logoW + 10, y, size: 14, font: bold, color: white });
+    page.drawImage(logo, { x: M, y: y - 8, width: logoW, height: logoH });
+    page.drawText('BuddyAds', { x: M + logoW + 12, y: y - 2, size: 16, font: bold, color: white });
     return;
   }
-  page.drawText('BuddyAds', { x: M, y, size: 14, font: bold, color: white });
+  page.drawText('BuddyAds', { x: M, y, size: 16, font: bold, color: white });
 }
 
 // ---------------------------------------------------------------------------
