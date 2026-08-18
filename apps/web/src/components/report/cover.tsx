@@ -1,6 +1,6 @@
-import { BrandLockup } from '@/components/brand';
 import type { IntelligenceReport } from '@/lib/report-types';
 import { formatDate, mentionRate, na, pct } from '@/lib/report-utils';
+import { ReportHeaderBrand } from './report-header-brand';
 import { Info } from './primitives';
 
 export function ReportCover({ report }: { report: IntelligenceReport }) {
@@ -52,7 +52,7 @@ export function ReportCover({ report }: { report: IntelligenceReport }) {
       <div className="pointer-events-none absolute -left-16 bottom-0 h-64 w-64 rounded-full bg-[#2563eb]/10 blur-3xl" />
 
       <div className="relative flex flex-wrap items-start justify-between gap-6">
-        <BrandLockup size="sm" href="/" inverted />
+        <ReportHeaderBrand inverted />
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#c4a574]">Confidential</p>
       </div>
 

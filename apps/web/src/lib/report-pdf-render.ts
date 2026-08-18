@@ -1,4 +1,6 @@
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFImage, type PDFPage } from 'pdf-lib';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { IntelligenceReport } from './report-types';
 import { enrichReportDerived } from './report-derived';
 
@@ -101,23 +103,51 @@ function mentionRateLabel(r: IntelligenceReport): string {
   return `${Math.round((mentions / usable) * 100)}%`;
 }
 
+async function loadReportLogo(doc: PDFDocument): Promise<PDFImage | null> {
+  const candidates = [
+    path.resolve(process.cwd(), 'public/aalgorix-logo.png'),
+    path.resolve(process.cwd(), 'apps/web/public/aalgorix-logo.png'),
+  ];
+  for (const filePath of candidates) {
+    try {
+      const bytes = await readFile(filePath);
+      return await doc.embedPng(bytes);
+    } catch {
+      // try next path
+    }
+  }
+  return null;
+}
+
+function drawReportBrandHeader(page: PDFPage, font: PDFFont, bold: PDFFont, logo: PDFImage | null) {
+  const y = H - 54;
+  if (logo) {
+    const logoH = 22;
+    const logoW = (logo.width / logo.height) * logoH;
+    page.drawImage(logo, { x: M, y: y - 4, width: logoW, height: logoH });
+    page.drawText('BuddyAds', { x: M + logoW + 10, y, size: 14, font: bold, color: white });
+    return;
+  }
+  page.drawText('BuddyAds', { x: M, y, size: 14, font: bold, color: white });
+}
+
 // ---------------------------------------------------------------------------
 // Page 1 - Cover
 // ---------------------------------------------------------------------------
 
-function page1Cover(doc: PDFDocument, font: PDFFont, bold: PDFFont, r: IntelligenceReport, customerName: string) {
+function page1Cover(
+  doc: PDFDocument,
+  font: PDFFont,
+  bold: PDFFont,
+  r: IntelligenceReport,
+  customerName: string,
+  logo: PDFImage | null,
+) {
   const page = doc.addPage([W, H]);
   page.drawRectangle({ x: 0, y: 0, width: W, height: H, color: navy });
   page.drawRectangle({ x: 0, y: H - 5, width: W, height: 5, color: gold });
 
-  page.drawText('BUDDYADS', { x: M, y: H - 52, size: 10, font: bold, color: gold });
-  page.drawText('AI VISIBILITY INTELLIGENCE', {
-    x: M + 78,
-    y: H - 52,
-    size: 8,
-    font,
-    color: rgb(0.7, 0.72, 0.76),
-  });
+  drawReportBrandHeader(page, font, bold, logo);
 
   page.drawText('AI Visibility Report', { x: M, y: H - 118, size: 26, font: bold, color: white });
   page.drawText('How AI assistants see, recommend, and cite your brand', {
@@ -607,8 +637,9 @@ export async function renderStructuredReportPdf(
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const logo = await loadReportLogo(doc);
 
-  page1Cover(doc, font, bold, r, customerName);
+  page1Cover(doc, font, bold, r, customerName, logo);
   page2ReadAndSummary(doc, font, bold, r);
   page3GoodBadMissing(doc, font, bold, r);
   page4Llms(doc, font, bold, r);
