@@ -3,6 +3,7 @@ import type { LlmAnswer } from './llm';
 import { buildIntelligence, fallbackNarrative, type IntakeContext } from './intelligence';
 import {
   computeBrandCategory,
+  computeClosestCompetitors,
   computeLlmStrategies,
   computeMentionBreakdown,
 } from './report-derived';
@@ -92,6 +93,18 @@ export async function buildReport(params: {
   });
 
   const llmStrategies = computeLlmStrategies(intel.platformPerformance, params.brandName);
+  const closestCompetitors = computeClosestCompetitors({
+    brandName: params.brandName,
+    competitors: intel.competitors,
+    coOccurrence: intel.coOccurrence,
+    citationGaps: intel.citationGaps,
+    losingQueries: intel.losingQueries,
+    ownMentionRate: mentionRate,
+    hasComparisonPage: Boolean(intel.crawl?.hasComparison),
+  });
+  const competitorInsights = closestCompetitors.length
+    ? `Closest competitors: ${closestCompetitors.map((c) => c.name).join(', ')}. ${narrative.competitorInsights}`
+    : narrative.competitorInsights;
 
   return {
     ...facts,
@@ -100,6 +113,7 @@ export async function buildReport(params: {
     brandCategory,
     mentionBreakdown,
     llmStrategies,
+    closestCompetitors,
     finalTakeaway: narrative.finalTakeaway,
     strongestPlatform: narrative.strongestPlatform,
     weakestPlatform: narrative.weakestPlatform,
@@ -112,6 +126,6 @@ export async function buildReport(params: {
     llmEstimates,
     roadmap30Day,
     roadmap90Day,
-    competitorInsights: narrative.competitorInsights,
+    competitorInsights,
   };
 }

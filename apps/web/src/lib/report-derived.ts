@@ -1,8 +1,13 @@
 import type {
   BrandCategory,
+  CitationGapRow,
+  ClosestCompetitorPlay,
+  CompetitorRow,
+  CoOccurrence,
   IntelligenceReport,
   LlmStrategyBrief,
   MentionBreakdown,
+  QueryOutcome,
   ResearchRow,
 } from './report-types';
 import { mentionRate } from './report-utils';
@@ -113,11 +118,108 @@ export const BRAND_CATEGORY_TIERS = [
   'Invisible',
 ] as const;
 
+function fmtPct(n: number | null): string {
+  return n == null ? 'N/A' : `${n}%`;
+}
+
+export function computeClosestCompetitors(params: {
+  brandName: string;
+  competitors: CompetitorRow[];
+  coOccurrence: CoOccurrence[];
+  citationGaps: CitationGapRow[];
+  losingQueries: QueryOutcome[];
+  ownMentionRate: number | null;
+  hasComparisonPage: boolean;
+}): ClosestCompetitorPlay[] {
+  const top = [...params.competitors]
+    .sort((a, b) => b.mentions - a.mentions || (b.mentionRate || 0) - (a.mentionRate || 0))
+    .slice(0, 3);
+
+  return top.map((comp, i) => {
+    const rank = i + 1;
+    const platforms = (comp.platforms || []).slice(0, 3);
+    const platformLabel = platforms.length ? platforms.join(', ') : 'sampled assistants';
+    const co = params.coOccurrence.find((c) => c.brand.toLowerCase() === comp.name.toLowerCase());
+    const cite = params.citationGaps.find((g) => g.competitor.toLowerCase() === comp.name.toLowerCase());
+    const stolen = params.losingQueries.filter(
+      (q) =>
+        (q.competitors || []).some((n) => n.toLowerCase() === comp.name.toLowerCase()) ||
+        q.whoWon?.toLowerCase() === comp.name.toLowerCase(),
+    );
+    const stolenQuery = stolen[0]?.query;
+    const theyLead =
+      params.ownMentionRate != null &&
+      comp.mentionRate != null &&
+      comp.mentionRate > params.ownMentionRate;
+
+    const whyClosest =
+      rank === 1
+        ? `${comp.name} is the closest rival in this sample: named in ${comp.mentions} answers (${fmtPct(comp.mentionRate)}), most often on ${platformLabel}.`
+        : `${comp.name} is closest competitor #${rank}: ${comp.mentions} AI mentions (${fmtPct(comp.mentionRate)}) across ${platformLabel}.`;
+
+    const theyWinOn = theyLead
+      ? `AI recommends ${comp.name} more often than ${params.brandName} (${fmtPct(comp.mentionRate)} vs ${fmtPct(params.ownMentionRate)}).${co ? ` They also appear next to you in ${co.count} answers.` : ''}`
+      : co
+        ? `AI treats ${comp.name} as a peer: they co-occur with ${params.brandName} in ${co.count} answers. You must differentiate, not just get mentioned.`
+        : stolen.length
+          ? `They take the shortlist when you are absent (${stolen.length} losing quer${stolen.length === 1 ? 'y' : 'ies'} in this sample).`
+          : `They show up on ${platformLabel} even when ${params.brandName} does not.`;
+
+    const moves: string[] = [];
+    moves.push(
+      params.hasComparisonPage
+        ? `Rewrite the comparison page so it names ${comp.name} in the H1, first 80 words, and FAQ: "${params.brandName} vs ${comp.name}" plus who each is for.`
+        : `Ship /compare/${comp.name.toLowerCase().replace(/\s+/g, '-')} this week: H1 "${params.brandName} vs ${comp.name}", 6 FAQs, and a one-line "choose us if...".`,
+    );
+    if (cite?.domains?.length) {
+      moves.push(
+        `Get listed where AI already cites ${comp.name}: ${cite.domains.slice(0, 3).join(', ')}. One guest post, directory listing, or original stat on those domains.`,
+      );
+    } else {
+      moves.push(
+        `Publish one citable proof block (stat, definition, or case result) on an indexable URL so assistants can quote ${params.brandName} the way they already quote ${comp.name}.`,
+      );
+    }
+    if (stolenQuery) {
+      moves.push(
+        `Answer this exact prompt on-site in 60-80 words: "${stolenQuery}". Add FAQPage schema. ${comp.name} appeared here; you did not.`,
+      );
+    } else {
+      moves.push(
+        `Add an alternatives FAQ: "What is a ${comp.name} alternative?" and answer with ${params.brandName} plus the buyer it is for. Repeat the same sentence on homepage and product page.`,
+      );
+    }
+
+    return {
+      rank,
+      name: comp.name,
+      mentions: comp.mentions,
+      mentionRate: comp.mentionRate,
+      platforms,
+      whyClosest,
+      theyWinOn,
+      moves: moves.slice(0, 3),
+    };
+  });
+}
+
 export function enrichReportDerived(report: IntelligenceReport): IntelligenceReport {
   return {
     ...report,
     brandCategory: report.brandCategory ?? computeBrandCategory(report),
     mentionBreakdown: report.mentionBreakdown ?? computeMentionBreakdown(report.research),
     llmStrategies: report.llmStrategies?.length ? report.llmStrategies : computeLlmStrategies(report),
+    closestCompetitors:
+      report.closestCompetitors?.length
+        ? report.closestCompetitors
+        : computeClosestCompetitors({
+            brandName: report.brandName,
+            competitors: report.competitors || [],
+            coOccurrence: report.coOccurrence || [],
+            citationGaps: report.citationGaps || [],
+            losingQueries: report.losingQueries || [],
+            ownMentionRate: mentionRate(report.research),
+            hasComparisonPage: Boolean(report.crawl?.hasComparison),
+          }),
   };
 }

@@ -197,6 +197,40 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
       </Section>
 
       <Section id="competition" number="08" title="Competition" lede={report.competitorInsights || 'Who AI recommends instead of you.'}>
+        {report.closestCompetitors?.length ? (
+          <div className="mb-8">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#b08950]">
+              3 closest competitors
+            </p>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              {report.closestCompetitors.map((c) => (
+                <div key={c.name} className="rounded-2xl border border-[#e4dfd4] bg-white p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[#b08950]">
+                    #{c.rank} · {c.mentionRate == null ? `${c.mentions} mentions` : `${c.mentionRate}% share`}
+                  </p>
+                  <p className="mt-1 font-serif text-2xl">{c.name}</p>
+                  {c.platforms.length ? (
+                    <p className="mt-1 text-xs text-[#8b8680]">{c.platforms.join(' · ')}</p>
+                  ) : null}
+                  <p className="mt-3 text-sm text-[#5c616b]">{c.whyClosest}</p>
+                  <p className="mt-2 text-sm">{c.theyWinOn}</p>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#b08950]">
+                    Execution vs {c.name}
+                  </p>
+                  <ol className="mt-2 space-y-2 text-sm text-[#3d4148]">
+                    {c.moves.map((move, i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="font-semibold text-[#b08950]">{i + 1}.</span>
+                        <span>{move}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {report.shareOfVoice.length ? (
           <>
             <SovBars rows={report.shareOfVoice} />

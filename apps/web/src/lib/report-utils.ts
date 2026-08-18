@@ -118,6 +118,7 @@ export function emptyReport(partial: Partial<IntelligenceReport> & Pick<Intellig
     shareOfVoice: [],
     coOccurrence: [],
     competitorGaps: [],
+    closestCompetitors: [],
     promptResults: [],
     winningQueries: [],
     losingQueries: [],

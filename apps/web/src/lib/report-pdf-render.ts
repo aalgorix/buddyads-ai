@@ -502,8 +502,24 @@ function page5Competition(doc: PDFDocument, font: PDFFont, bold: PDFFont, r: Int
 
   y = para(page, font, r.competitorInsights || 'Insufficient data on competitors.', M, y, 9, W - M * 2, muted, 3) - 18;
 
-  // Share of voice table
-  const sov = r.shareOfVoice || [];
+  const closest = (r.closestCompetitors || []).slice(0, 3);
+  if (closest.length) {
+    page.drawText('3 closest competitors  --  execution vs each', { x: M, y, size: 11, font: bold, color: ink });
+    y -= 16;
+    for (const c of closest) {
+      page.drawText(`#${c.rank}  ${c.name}   ${pct(c.mentionRate)}  ${c.mentions} mentions`, {
+        x: M, y, size: 10, font: bold, color: ink,
+      });
+      y = para(page, font, c.theyWinOn, M, y - 13, 8, W - M * 2, muted, 2.4) - 6;
+      for (const [i, move] of c.moves.slice(0, 3).entries()) {
+        y = para(page, font, `${i + 1}. ${move}`, M + 10, y, 8, W - M * 2 - 10, ink, 2.4) - 4;
+      }
+      y -= 8;
+    }
+  }
+
+  // Share of voice table (you + top rivals)
+  const sov = (r.shareOfVoice || []).slice(0, 5);
   const totalResp = r.coverage?.responsesAnalyzed || 0;
   page.drawText(`Share of voice in ${totalResp} answers`, { x: M, y, size: 11, font: bold, color: ink });
   y -= 18;
@@ -529,28 +545,19 @@ function page5Competition(doc: PDFDocument, font: PDFFont, bold: PDFFont, r: Int
     y -= 20;
   });
 
-  // Competitor gaps
-  y -= 16;
-  const gaps = r.competitorGaps || [];
-  if (gaps.length) {
-    page.drawText('Where they beat you', { x: M, y, size: 11, font: bold, color: ink });
-    y -= 14;
-    for (const g of gaps.slice(0, 4)) {
-      page.drawText(g.area, { x: M, y, size: 9, font: bold, color: ink });
-      page.drawText(`${g.competitorName}: ${g.competitor}`, { x: M + 168, y, size: 8, font, color: muted });
-      y = para(page, font, g.gap, M, y - 14, 8, W - M * 2, muted, 2.6) - 10;
+  if (!closest.length) {
+    y -= 16;
+    const gaps = r.competitorGaps || [];
+    if (gaps.length) {
+      page.drawText('Where they beat you', { x: M, y, size: 11, font: bold, color: ink });
+      y -= 14;
+      for (const g of gaps.slice(0, 4)) {
+        page.drawText(g.area, { x: M, y, size: 9, font: bold, color: ink });
+        page.drawText(`${g.competitorName}: ${g.competitor}`, { x: M + 168, y, size: 8, font, color: muted });
+        y = para(page, font, g.gap, M, y - 14, 8, W - M * 2, muted, 2.6) - 10;
+      }
     }
   }
-
-  // Competitive read callout
-  y -= 6;
-  page.drawRectangle({ x: M, y: y - 70, width: W - M * 2, height: 76, color: navy });
-  page.drawText('Competitive read', { x: M + 14, y: y - 16, size: 9, font: bold, color: gold });
-  para(
-    page, font,
-    r.competitorInsights || 'Insufficient competitor data for a competitive read.',
-    M + 14, y - 34, 8.5, W - M * 2 - 28, rgb(0.85, 0.86, 0.88), 3,
-  );
 
   footer(page, font, r.brandName, 5);
 }

@@ -268,7 +268,7 @@ export function buildIntelligence(params: {
   agentNotes?: string;
   generatedAt?: string;
   engineScores?: { aeo?: number; geo?: number; technical?: number } | null;
-}): Omit<ReportPayload, 'executiveSummary' | 'finalTakeaway' | 'strongestPlatform' | 'weakestPlatform' | 'howToDoBetter' | 'plan7Day' | 'roadmap30' | 'strategy90' | 'opportunities' | 'recommendations' | 'llmEstimates' | 'roadmap30Day' | 'roadmap90Day' | 'competitorInsights' | 'summary' | 'brandCategory' | 'mentionBreakdown' | 'llmStrategies'> & {
+}): Omit<ReportPayload, 'executiveSummary' | 'finalTakeaway' | 'strongestPlatform' | 'weakestPlatform' | 'howToDoBetter' | 'plan7Day' | 'roadmap30' | 'strategy90' | 'opportunities' | 'recommendations' | 'llmEstimates' | 'roadmap30Day' | 'roadmap90Day' | 'competitorInsights' | 'summary' | 'brandCategory' | 'mentionBreakdown' | 'llmStrategies' | 'closestCompetitors'> & {
   usableCount: number;
   mentionCount: number;
   citationCount: number;
@@ -1160,7 +1160,7 @@ export function fallbackNarrative(intel: ReturnType<typeof buildIntelligence>): 
     : `We could not sample live AI answers in this run. Treat AEO, GEO, and technical findings as the foundation, then re-run once model access is configured so BuddyScore includes real mention and citation evidence.`;
 
   const competitorInsights = intel.competitors.length
-    ? `AI named ${intel.competitors.slice(0, 4).map((c) => c.name).join(', ')} alongside or instead of ${intel.brandName} in this sample. ${intel.coOccurrence.length ? `Most frequent co-occurrence: ${intel.coOccurrence[0].brand} (${intel.coOccurrence[0].count}).` : ''}`
+    ? `Closest competitors in this sample: ${intel.competitors.slice(0, 3).map((c) => c.name).join(', ')}. AI named them alongside or instead of ${intel.brandName}. ${intel.coOccurrence.length ? `Most frequent co-occurrence: ${intel.coOccurrence[0].brand} (${intel.coOccurrence[0].count}).` : ''}`
     : intel.usableCount
       ? `No tracked competitors were detected in sampled answers. ${intel.coverage.brandsTracked <= 1 ? 'Add competitor names on intake to measure share of voice more precisely.' : 'Tracked names did not appear in this sample.'}`
       : 'Competitor visibility requires successful AI responses.';

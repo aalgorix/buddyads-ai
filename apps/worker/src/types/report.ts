@@ -142,6 +142,17 @@ export type CompetitorGapRow = {
   gap: string;
 };
 
+export type ClosestCompetitorPlay = {
+  rank: number;
+  name: string;
+  mentions: number;
+  mentionRate: number | null;
+  platforms: string[];
+  whyClosest: string;
+  theyWinOn: string;
+  moves: string[];
+};
+
 export type PromptPlatformCell = {
   platform: string;
   model: string;
@@ -330,6 +341,7 @@ export type ReportPayload = {
   shareOfVoice: ShareOfVoiceRow[];
   coOccurrence: CoOccurrence[];
   competitorGaps: CompetitorGapRow[];
+  closestCompetitors: ClosestCompetitorPlay[];
   promptResults: PromptResult[];
   winningQueries: QueryOutcome[];
   losingQueries: QueryOutcome[];
