@@ -264,6 +264,34 @@ export type ExecutiveSummary = {
   next: string[];
 };
 
+export type BrandCategoryTier =
+  | 'Category leader'
+  | 'Known alternative'
+  | 'Occasional mention'
+  | 'Low visibility'
+  | 'Invisible';
+
+export type BrandCategory = {
+  tier: BrandCategoryTier;
+  summary: string;
+};
+
+export type MentionBreakdown = {
+  mentionedNoLink: number;
+  mentionedWithLink: number;
+  noMention: number;
+  totalResponses: number;
+  mentionedNoLinkRate: number | null;
+  mentionedWithLinkRate: number | null;
+  noMentionRate: number | null;
+};
+
+export type LlmStrategyBrief = {
+  platform: string;
+  tag: string;
+  note: string;
+};
+
 export type Scorecard = {
   buddyScore: number | null;
   aiVisibility: number | null;
@@ -319,6 +347,9 @@ export type ReportPayload = {
   roadmap30: WeekPlan[];
   strategy90: MonthPlan[];
   executiveSummary: ExecutiveSummary;
+  brandCategory: BrandCategory;
+  mentionBreakdown: MentionBreakdown;
+  llmStrategies: LlmStrategyBrief[];
   finalTakeaway: string;
   methodologyNotes: string[];
   crawl: CrawlSnapshot;

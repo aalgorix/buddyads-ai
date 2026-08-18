@@ -1,6 +1,11 @@
 import type { CrawlResult } from './crawl';
 import type { LlmAnswer } from './llm';
 import { buildIntelligence, fallbackNarrative, type IntakeContext } from './intelligence';
+import {
+  computeBrandCategory,
+  computeLlmStrategies,
+  computeMentionBreakdown,
+} from './report-derived';
 import { writeNarrative } from './narrative';
 import type { ReportPayload } from '../types/report';
 
@@ -65,10 +70,36 @@ export async function buildReport(params: {
   void _s;
   void _w;
 
+  const mentionBreakdown = computeMentionBreakdown(intel.research);
+  const mentionRate =
+    intel.usableCount > 0 ? Math.round((intel.mentionCount / intel.usableCount) * 1000) / 10 : null;
+  const positions = intel.research
+    .filter((r) => r.answer && !r.error && r.brandMentioned)
+    .map((r) => r.brandPosition)
+    .filter((n): n is number => n != null);
+  const avgPosition = positions.length
+    ? Math.round((positions.reduce((a, b) => a + b, 0) / positions.length) * 10) / 10
+    : null;
+
+  const brandCategory = computeBrandCategory({
+    brandName: params.brandName,
+    buddyScore: intel.scores.buddyScore,
+    mentionRate,
+    citationRate: intel.ownCitationRate,
+    avgPosition,
+    usableCount: intel.usableCount,
+    strongestVisibility: intel.rawStrongest?.visibility ?? null,
+  });
+
+  const llmStrategies = computeLlmStrategies(intel.platformPerformance, params.brandName);
+
   return {
     ...facts,
     summary: narrative.summary,
     executiveSummary: narrative.executiveSummary,
+    brandCategory,
+    mentionBreakdown,
+    llmStrategies,
     finalTakeaway: narrative.finalTakeaway,
     strongestPlatform: narrative.strongestPlatform,
     weakestPlatform: narrative.weakestPlatform,

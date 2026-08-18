@@ -268,7 +268,7 @@ export function buildIntelligence(params: {
   agentNotes?: string;
   generatedAt?: string;
   engineScores?: { aeo?: number; geo?: number; technical?: number } | null;
-}): Omit<ReportPayload, 'executiveSummary' | 'finalTakeaway' | 'strongestPlatform' | 'weakestPlatform' | 'howToDoBetter' | 'plan7Day' | 'roadmap30' | 'strategy90' | 'opportunities' | 'recommendations' | 'llmEstimates' | 'roadmap30Day' | 'roadmap90Day' | 'competitorInsights' | 'summary'> & {
+}): Omit<ReportPayload, 'executiveSummary' | 'finalTakeaway' | 'strongestPlatform' | 'weakestPlatform' | 'howToDoBetter' | 'plan7Day' | 'roadmap30' | 'strategy90' | 'opportunities' | 'recommendations' | 'llmEstimates' | 'roadmap30Day' | 'roadmap90Day' | 'competitorInsights' | 'summary' | 'brandCategory' | 'mentionBreakdown' | 'llmStrategies'> & {
   usableCount: number;
   mentionCount: number;
   citationCount: number;

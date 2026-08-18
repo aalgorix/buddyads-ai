@@ -1,4 +1,5 @@
 import type { IntelligenceReport, ResearchRow } from './report-types';
+import { enrichReportDerived } from './report-derived';
 import { emptyReport, mentionRate, platformFromModel, unique } from './report-utils';
 
 type Legacy = {
@@ -56,14 +57,14 @@ export function normalizeReport(
   }
 
   if (isV2(parsed)) {
-    return {
+    return enrichReportDerived({
       ...parsed,
       analysisId: parsed.analysisId || meta.analysisId,
       brandName: parsed.brandName || meta.brandName,
       token: meta.token,
       pdfAvailable: meta.pdfAvailable,
       generatedAt: parsed.generatedAt || meta.generatedAt,
-    };
+    });
   }
 
   const research = (parsed.research || []).map((r) => ({
@@ -121,10 +122,12 @@ export function normalizeReport(
         ? 'Medium'
         : 'Low') as IntelligenceReport['confidence'];
 
-  return emptyReport({
-    analysisId: meta.analysisId,
-    brandName: parsed.brandName || meta.brandName,
-    websiteUrl: parsed.websiteUrl || '',
+  return enrichReportDerived({
+    ...emptyReport({
+      analysisId: meta.analysisId,
+      brandName: parsed.brandName || meta.brandName,
+      websiteUrl: parsed.websiteUrl || '',
+    }),
     generatedAt: parsed.generatedAt || meta.generatedAt,
     overall: parsed.overall ?? meta.overall,
     aeo: parsed.aeo ?? meta.aeo,
