@@ -155,7 +155,7 @@ function page1Cover(doc: PDFDocument, font: PDFFont, bold: PDFFont) {
   page.drawText('BuddyScore', { x: M, y: H - 278, size: 10, font, color: gold });
   page.drawText('61', { x: M, y: H - 338, size: 56, font: bold, color: white });
   page.drawText('/ 100', { x: M + 78, y: H - 312, size: 12, font, color: rgb(0.55, 0.57, 0.62) });
-  page.drawText('Grade C+   ·   Confidence Medium', {
+  page.drawText('Confidence Medium', {
     x: M,
     y: H - 358,
     size: 10,

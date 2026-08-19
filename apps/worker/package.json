@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "start": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/tools/report-integrity.test.ts src/tools/report-methodology.test.ts"
   },
   "dependencies": {
     "@buddyads/db": "workspace:*",
+    "@buddyads/report-pdf": "workspace:*",
     "cheerio": "^1.0.0",
     "dotenv": "^16.4.7",
     "pdf-lib": "^1.17.1",

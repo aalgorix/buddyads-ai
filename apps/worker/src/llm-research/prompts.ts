@@ -45,6 +45,7 @@ export function generateResearchPrompts(params: {
   pageTitles: string[];
   faqHeadings: string[];
   topics: string[];
+  maxCount?: number;
 }): GeneratedPrompt[] {
   const brand = params.brand;
   const products = splitList(params.intake?.productsServices);
@@ -66,9 +67,21 @@ export function generateResearchPrompts(params: {
   add(`Best ${noun}`, 'best_of', 'product', 10);
   add(`Top ${noun} tools`, 'best_of', 'product', 16);
   add(`What companies would you recommend for ${noun}? Name specific brands.`, 'best_of', 'product', 12);
-  for (const product of products.slice(0, 4)) {
+  add(`Who are the leading ${noun} providers?`, 'best_of', 'product', 13);
+  add(`Best ${noun} companies 2026`, 'best_of', 'product', 15);
+  add(`${noun} comparison — which brands should a buyer shortlist?`, 'best_of', 'product', 17);
+  add(`Cheapest ${noun} options worth considering`, 'pricing', 'product', 35);
+  add(`Enterprise ${noun} vendors`, 'audience', 'product', 27);
+  add(`${noun} for startups`, 'audience', 'product', 29);
+  add(`Who should I hire for ${noun}?`, 'use_case', 'product', 21);
+  add(`What is the best alternative if I need ${noun}?`, 'competitor_alternative', 'product', 23);
+  add(`How do buyers evaluate ${noun} vendors?`, 'use_case', 'product', 31);
+  add(`Which ${noun} brands are cited by analysts or review sites?`, 'brand', 'product', 32);
+  for (const product of products.slice(0, 6)) {
     add(`Best ${product} software`, 'best_of', 'product', 14);
     add(`${product} for SMEs`, 'audience', 'product', 28);
+    add(`${product} pricing comparison`, 'pricing', 'product', 34);
+    add(`Best ${product} for mid-market teams`, 'audience', 'product', 25);
   }
   for (const audience of audiences.slice(0, 4)) {
     add(`Best ${noun} for ${audience}`, 'audience', 'audience', 18);
@@ -102,6 +115,20 @@ export function generateResearchPrompts(params: {
     add(`Best tools for ${topic}`, 'use_case', 'content', 33);
   }
   add(`Where would you send someone for independent information about ${brand} and ${noun}?`, 'brand', 'intake', 34);
+  add(`Is ${brand} a real option for ${noun}, or do assistants recommend others instead?`, 'brand', 'intake', 19);
+  add(`List five specific companies that offer ${noun} besides ${brand}.`, 'best_of', 'product', 11);
 
-  return [...bag.values()].sort((a, b) => a.priority - b.priority).slice(0, 12);
+  let pad = 1;
+  while (bag.size < (params.maxCount ?? 40) && pad <= 40) {
+    add(
+      `Which companies would you recommend for ${noun} to a first-time buyer looking at option set ${pad}? Name specific brands.`,
+      'best_of',
+      'pad',
+      50 + pad,
+    );
+    pad += 1;
+  }
+
+  const maxCount = params.maxCount ?? 40;
+  return [...bag.values()].sort((a, b) => a.priority - b.priority).slice(0, maxCount);
 }

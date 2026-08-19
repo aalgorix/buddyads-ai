@@ -1,5 +1,6 @@
 import { interpretReport } from './llm';
 import { fallbackNarrative, type buildIntelligence } from './intelligence';
+import { recMetadataFor } from '../config/recommendations';
 import type { DayPlan, HowToItem, MonthPlan, Opportunity, PlatformSpotlight, ReportPayload, WeekPlan } from '../types/report';
 
 type Intel = ReturnType<typeof buildIntelligence>;
@@ -35,7 +36,6 @@ export async function writeNarrative(intel: Intel): Promise<ReturnType<typeof fa
       brandName: intel.brandName,
       websiteUrl: intel.websiteUrl,
       scores: intel.scores,
-      grade: intel.grade,
       confidence: intel.confidence,
       confidenceReason: intel.confidenceReason,
       coverage: intel.coverage,
@@ -79,7 +79,7 @@ Return ONLY JSON with this shape:
   "finalTakeaway": "...",
   "strongestWhy": "why the strongest platform performed well, citing evidence",
   "weakestWhy": "why the weakest platform is weaker, citing evidence",
-  "competitorInsights": "Name the 3 closest competitors from FACTS.competitors. One sentence on who is closest and why.",
+  "competitorInsights": "Name the closest competitors from FACTS.competitors using the actual count (do not invent a number). If the list is empty, write exactly: No competitors could be reliably identified from this sample.",
   "opportunities": [{"title":"","impact":"High|Medium|Low","difficulty":"Easy|Medium|Hard","evidence":"","strategicValue":""}],
   "howToDoBetter": [{"problem":"","whyItMatters":"","evidence":"","recommendedAction":"","implementation":"","priority":"High|Medium|Low","difficulty":"Easy|Medium|Hard","expectedImpact":""}],
   "plan7Day": [{"day":1,"title":"","task":"","connectedProblem":""}],
@@ -139,6 +139,14 @@ function mergeHowTo(raw: unknown, fallback: HowToItem[]): HowToItem[] {
     const o = item as Record<string, unknown>;
     const problem = asString(o.problem);
     if (!problem) continue;
+    const findingHint = asString(o.findingId);
+    const matched =
+      fallback.find((f) => f.problem === problem) ||
+      fallback.find((f) => f.findingId && f.findingId === findingHint);
+    const sourceRef = asString(o.sourceRef) || matched?.sourceRef;
+    if (!sourceRef) continue;
+    const findingId = matched?.findingId || findingHint || undefined;
+    const meta = recMetadataFor(findingId || '');
     out.push({
       problem,
       whyItMatters: asString(o.whyItMatters) || 'This affects whether AI can name, place, or cite the brand.',
@@ -148,6 +156,11 @@ function mergeHowTo(raw: unknown, fallback: HowToItem[]): HowToItem[] {
       priority: pri(o.priority),
       difficulty: diff(o.difficulty),
       expectedImpact: asString(o.expectedImpact) || 'Potential directional impact on the related BuddyAds metrics. Not guaranteed.',
+      sourceRef,
+      findingId,
+      effort: meta.effort,
+      ownerType: meta.ownerType,
+      timeToImpact: meta.timeToImpact,
     });
   }
   return out.length ? out : fallback;

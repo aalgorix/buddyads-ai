@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import type { IntelligenceReport } from '@/lib/report-types';
 import { BRAND_CATEGORY_TIERS } from '@/lib/report-derived';
+import { competitorNoun } from '@/lib/report-integrity';
 import { na, pct } from '@/lib/report-utils';
 import { SovBars } from './charts';
 import { Callout, DataTable, EmptyState, Kpi, Metric, Pill, Section } from './primitives';
 
 const DISCLAIMER =
-  'BuddyScore is a proprietary BuddyAds.ai measurement based on observable AI responses and website signals. It is not an internal ranking score provided by OpenAI, Google, Anthropic, Perplexity, or any other AI provider.';
+  'AI Visibility and On-site AI-readiness are proprietary BuddyAds.ai measurements from sampled AI answers and crawled website signals. They are not internal ranking scores from OpenAI, Google, Anthropic, Perplexity, or any other AI provider. Legacy BuddyScore is an appendix figure only and is not comparable across methodology versions.';
 
 export function ReportSections({ report }: { report: IntelligenceReport }) {
   const cov = report.coverage;
@@ -23,12 +24,16 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
       >
         <div className="grid gap-3 md:grid-cols-2">
           <ReadRule
-            title="BuddyScore (0–100)"
-            body="A BuddyAds composite of mention rate, position, citations, and on-site AI-readiness. Not an official ranking from any AI provider."
+            title="AI Visibility (0–100)"
+            body="Mention rate, citation rate, and average position only. Missing inputs are excluded and remaining AI-Visibility weights are renormalized — they never shift onto on-site signals."
+          />
+          <ReadRule
+            title="On-site AI-readiness (0–100)"
+            body="AEO, GEO, technical, and entity strength from the crawl. Confidence is crawl-based and does not use usable LLM count. The n<20 sample caveat does not apply here."
           />
           <ReadRule
             title="LLMs checked"
-            body={`Distinct AI assistants queried in this run${cov.platformNames.length ? `: ${cov.platformNames.join(', ')}` : '.'}`}
+            body={`${na(cov.platformsQueried ?? cov.platformsTested)} queried, ${na(cov.platformsUsable ?? report.platformPerformance.length)} usable${(cov.platformNamesUsable || cov.platformNames).length ? `: ${(cov.platformNamesUsable || cov.platformNames).join(', ')}` : '.'}`}
           />
           <ReadRule
             title="Queries transacted"
@@ -44,10 +49,47 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
           />
           <ReadRule
             title="Strategy by LLM"
-            body="One-line read per assistant. Full playbooks are on a strategy call — not in this report."
+            body="One-line read per assistant based on how that model treated the brand in this sample."
           />
         </div>
       </Section>
+
+      {report.scoreBreakdown ? (
+        <Section
+          id="appendix-legacy-score"
+          number="A"
+          title="Appendix · legacy BuddyScore"
+          lede={`Not comparable across methodologyVersion changes (this report: ${report.methodologyVersion || '—'}). Mixed AI Visibility and on-site signals; retained for historical reference only.`}
+        >
+          <p className="font-serif text-4xl text-[#0b1220]">{report.scoreBreakdown.total}</p>
+          <p className="mt-1 text-sm text-[#8b8680]">/ 100 · EST · not shown on the cover</p>
+          <p className="mt-4 text-sm text-[#5c616b]">{report.scoreBreakdown.missingPolicyNote}</p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-[11px] uppercase tracking-wider text-[#8b8680]">
+                <tr>
+                  <th className="pb-2 font-medium">Component</th>
+                  <th className="pb-2 font-medium">Raw</th>
+                  <th className="pb-2 font-medium">Norm</th>
+                  <th className="pb-2 font-medium">Weight</th>
+                  <th className="pb-2 font-medium">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.scoreBreakdown.components.map((c) => (
+                  <tr key={c.key} className="border-t border-[#e4dfd4]">
+                    <td className="py-2">{c.label}</td>
+                    <td>{c.rawDisplay}</td>
+                    <td>{c.normalized == null ? 'excl.' : c.normalized}</td>
+                    <td>{Math.round(c.weight * 100)}%</td>
+                    <td>{c.contribution.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Section>
+      ) : null}
 
       <Section
         id="executive-summary"
@@ -61,6 +103,14 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
           <ExecList q="Doing well" items={report.executiveSummary.strengths} />
           <ExecList q="Hurting visibility" items={report.executiveSummary.gaps} />
         </div>
+        {(report.oneThingCallout || report.executiveSummary.oneThing) && (
+          <div className="mt-6 rounded-2xl bg-[#0b1220] px-5 py-4 text-[#f4f1ea]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c4a574]">If you do one thing</p>
+            <p className="mt-2 text-sm leading-relaxed">
+              {(report.oneThingCallout || report.executiveSummary.oneThing)?.action}
+            </p>
+          </div>
+        )}
         <p className="mt-6 text-sm leading-relaxed text-[#5c616b]">{report.finalTakeaway}</p>
       </Section>
 
@@ -132,8 +182,17 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
         id="llm-performance"
         number="06"
         title="LLM performance"
-        lede={`${na(cov.platformsTested)} LLMs checked · ${na(cov.queriesTransacted)} queries transacted · ${na(cov.responsesAnalyzed)} responses analyzed`}
+        lede={`${na(cov.platformsQueried ?? cov.platformsTested)} queried, ${na(cov.platformsUsable ?? report.platformPerformance.length)} usable · ${na(cov.queriesTransacted)} queries · ${na(cov.responsesAnalyzed)} responses`}
       >
+        {(cov.platformStatus || []).filter((p) => p.usable === 0).length ? (
+          <Callout label="Platforms excluded">
+            {(cov.platformStatus || [])
+              .filter((p) => p.usable === 0)
+              .map((p) => (
+                <p key={p.platform}>{p.note}</p>
+              ))}
+          </Callout>
+        ) : null}
         {report.platformPerformance.length ? (
           <DataTable
             columns={['LLM', 'Queries', 'Mentions', 'Mention %', 'Avg pos.', 'Citations', 'Visibility']}
@@ -194,60 +253,73 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
           Most visibility is name-only unless your domain is cited. Mentions without links do not send traffic or
           reinforce authority in AI answers.
         </p>
+        <p className="mt-3 text-sm text-[#8b8680]">
+          {report.categoryBenchmark?.note || 'No benchmark available for this category'}
+        </p>
       </Section>
 
-      <Section id="competition" number="08" title="Competition" lede={report.competitorInsights || 'Who AI recommends instead of you.'}>
+      <Section
+        id="competition"
+        number="08"
+        title="Competition"
+        lede={
+          report.closestCompetitors?.length
+            ? report.competitorInsights || 'Who AI recommends instead of you.'
+            : 'No competitors could be reliably identified from this sample'
+        }
+      >
         {report.closestCompetitors?.length ? (
-          <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#b08950]">
-              3 closest competitors
-            </p>
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              {report.closestCompetitors.map((c) => (
-                <div key={c.name} className="rounded-2xl border border-[#e4dfd4] bg-white p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-[#b08950]">
-                    #{c.rank} · {c.mentionRate == null ? `${c.mentions} mentions` : `${c.mentionRate}% share`}
-                  </p>
-                  <p className="mt-1 font-serif text-2xl">{c.name}</p>
-                  {c.platforms.length ? (
-                    <p className="mt-1 text-xs text-[#8b8680]">{c.platforms.join(' · ')}</p>
-                  ) : null}
-                  <p className="mt-3 text-sm text-[#5c616b]">{c.whyClosest}</p>
-                  <p className="mt-2 text-sm">{c.theyWinOn}</p>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#b08950]">
-                    Execution vs {c.name}
-                  </p>
-                  <ol className="mt-2 space-y-2 text-sm text-[#3d4148]">
-                    {c.moves.map((move, i) => (
-                      <li key={i} className="flex gap-2">
-                        <span className="font-semibold text-[#b08950]">{i + 1}.</span>
-                        <span>{move}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {report.shareOfVoice.length ? (
           <>
-            <SovBars rows={report.shareOfVoice} />
-            <div className="mt-8 space-y-4">
-              {report.competitorGaps.slice(0, 4).map((g) => (
-                <div key={g.area} className="rounded-2xl border border-[#e4dfd4] bg-white p-4">
-                  <p className="font-semibold">{g.area}</p>
-                  <p className="mt-1 text-sm text-[#5c616b]">
-                    You: {g.yours} · {g.competitorName}: {g.competitor}
-                  </p>
-                  <p className="mt-2 text-sm">{g.gap}</p>
-                </div>
-              ))}
+            <div className="mb-8">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#b08950]">
+                {competitorNoun(report.closestCompetitors.length)}
+              </p>
+              <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                {report.closestCompetitors.map((c) => (
+                  <div key={c.name} className="rounded-2xl border border-[#e4dfd4] bg-white p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#b08950]">
+                      #{c.rank} · {c.mentionRate == null ? `${c.mentions} mentions` : `${c.mentionRate}% share`}
+                    </p>
+                    <p className="mt-1 font-serif text-2xl">{c.name}</p>
+                    {c.platforms.length ? (
+                      <p className="mt-1 text-xs text-[#8b8680]">{c.platforms.join(' · ')}</p>
+                    ) : null}
+                    <p className="mt-3 text-sm text-[#5c616b]">{c.whyClosest}</p>
+                    <p className="mt-2 text-sm">{c.theyWinOn}</p>
+                    <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[#b08950]">
+                      Execution vs {c.name}
+                    </p>
+                    <ol className="mt-2 space-y-2 text-sm text-[#3d4148]">
+                      {c.moves.map((move, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="font-semibold text-[#b08950]">{i + 1}.</span>
+                          <span>{move}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ))}
+              </div>
             </div>
+            {report.shareOfVoice.length ? (
+              <>
+                <SovBars rows={report.shareOfVoice} />
+                <div className="mt-8 space-y-4">
+                  {report.competitorGaps.slice(0, 4).map((g) => (
+                    <div key={g.area} className="rounded-2xl border border-[#e4dfd4] bg-white p-4">
+                      <p className="font-semibold">{g.area}</p>
+                      <p className="mt-1 text-sm text-[#5c616b]">
+                        You: {g.yours} · {g.competitorName}: {g.competitor}
+                      </p>
+                      <p className="mt-2 text-sm">{g.gap}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </>
         ) : (
-          <EmptyState>No competitor share-of-voice data in this sample.</EmptyState>
+          <EmptyState>No competitors could be reliably identified from this sample</EmptyState>
         )}
       </Section>
 
@@ -255,7 +327,7 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
         id="how-to-better"
         number="09"
         title="Explore how to do it better"
-        lede="Top priorities from this analysis. Full playbooks are on a strategy call."
+        lede="Highest-leverage moves from this analysis."
       >
         {topActions.length ? (
           <ol className="space-y-4">
@@ -263,6 +335,10 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
               <li key={h.problem} className="rounded-2xl border border-[#e4dfd4] bg-white p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-[#b08950]">
                   Priority {i + 1} · {h.priority}
+                  {h.effort ? ` · Effort ${h.effort}` : ''}
+                  {h.ownerType ? ` · ${h.ownerType}` : ''}
+                  {h.timeToImpact ? ` · ${h.timeToImpact}` : ''}
+                  {h.effort ? ' · EST' : ''}
                 </p>
                 <p className="mt-1 font-semibold">{h.problem}</p>
                 <p className="mt-2 text-sm text-[#5c616b]">{h.recommendedAction}</p>
@@ -278,7 +354,7 @@ export function ReportSections({ report }: { report: IntelligenceReport }) {
         id="llm-strategy"
         number="10"
         title="Strategy by LLM"
-        lede="One read per assistant. Connect with us for the full roadmap."
+        lede="One read per assistant based on this sample."
       >
         {report.llmStrategies.length ? (
           <div className="space-y-3">

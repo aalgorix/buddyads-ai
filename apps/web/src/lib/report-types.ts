@@ -1,3 +1,7 @@
+import type { DisplayedMetric, ScoreBreakdown } from '@buddyads/report-pdf';
+
+export type { DisplayedMetric, ScoreBreakdown };
+
 export type Confidence = 'Low' | 'Medium' | 'High';
 export type Priority = 'High' | 'Medium' | 'Low';
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
@@ -17,6 +21,7 @@ export type ResearchRow = {
   citations?: CitationRef[];
   ownDomainCited?: boolean;
   sentiment?: Sentiment | null;
+  status?: 'success' | 'error' | 'empty' | 'refused';
   error?: string;
 };
 
@@ -66,6 +71,24 @@ export type Coverage = {
   researchEndedAt: string | null;
   platformNames: string[];
   modelNames: string[];
+  platformsQueried?: number;
+  platformsUsable?: number;
+  platformNamesQueried?: string[];
+  platformNamesUsable?: string[];
+  competitorsTracked?: number;
+  limitedSample?: boolean;
+  platformStatus?: PlatformRunStatus[];
+  sampleSize?: number;
+  sampleCaveat?: string | null;
+};
+
+export type PlatformRunStatus = {
+  platform: string;
+  model: string;
+  queried: number;
+  usable: number;
+  status: 'success' | 'error' | 'empty' | 'refused';
+  note: string;
 };
 
 export type PlatformPerformance = {
@@ -102,6 +125,7 @@ export type EvidenceItem = {
 };
 
 export type MissingSignal = {
+  id?: string;
   signal: string;
   observed: string;
   whyItMatters: string;
@@ -184,6 +208,7 @@ export type CitationGapRow = {
   domains: string[];
   yours: string[];
   opportunity: string;
+  sourceRefs?: string[];
 };
 
 export type SubScore = { label: string; score: number | null; note: string };
@@ -231,6 +256,24 @@ export type HowToItem = {
   priority: Priority;
   difficulty: Difficulty;
   expectedImpact: string;
+  sourceRef?: string;
+  findingId?: string;
+  effort?: 'S' | 'M' | 'L';
+  ownerType?: 'content' | 'dev' | 'PR';
+  timeToImpact?: string;
+};
+
+export type OneThingCallout = {
+  problem: string;
+  action: string;
+  sourceRef: string;
+};
+
+export type CategoryBenchmark = {
+  available: boolean;
+  note: string;
+  typicalMentionRate: number | null;
+  strongMentionRate: number | null;
 };
 
 export type DayPlan = { day: number; title: string; task: string; connectedProblem: string };
@@ -243,6 +286,7 @@ export type ExecutiveSummary = {
   strengths: string[];
   gaps: string[];
   next: string[];
+  oneThing?: OneThingCallout | null;
 };
 
 export type BrandCategoryTier =
@@ -276,6 +320,7 @@ export type LlmStrategyBrief = {
 export type Scorecard = {
   buddyScore: number | null;
   aiVisibility: number | null;
+  onSiteReadiness: number | null;
   aeo: number | null;
   geo: number | null;
   technical: number | null;
@@ -295,10 +340,11 @@ export type IntelligenceReport = {
   aeo: number;
   geo: number;
   llmReady: number;
-  grade: string;
   summary: string;
   confidence: Confidence;
   confidenceReason: string;
+  onSiteConfidence?: Confidence;
+  onSiteConfidenceReason?: string;
   scores: Scorecard;
   coverage: Coverage;
   platformPerformance: PlatformPerformance[];
@@ -335,6 +381,13 @@ export type IntelligenceReport = {
   finalTakeaway: string;
   methodologyNotes: string[];
   competitorInsights?: string;
+  scoreBreakdown?: ScoreBreakdown;
+  aiVisibilityBreakdown?: ScoreBreakdown;
+  onSiteBreakdown?: ScoreBreakdown;
+  displayedMetrics?: DisplayedMetric[];
+  methodologyVersion?: string;
+  categoryBenchmark?: CategoryBenchmark;
+  oneThingCallout?: OneThingCallout | null;
   crawl: CrawlSnapshot;
   research: ResearchRow[];
   token?: string;

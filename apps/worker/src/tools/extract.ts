@@ -1,4 +1,5 @@
 import type { CitationRef, Sentiment } from '../types/report';
+import { isGenericCompetitorName, looksLikeProperNoun } from './report-integrity';
 
 const STOP_ENTITIES = new Set(
   [
@@ -6,6 +7,7 @@ const STOP_ENTITIES = new Set(
     'top', 'here', 'there', 'what', 'when', 'how', 'why', 'who', 'which',
     'company', 'companies', 'brand', 'brands', 'product', 'products', 'service',
     'services', 'platform', 'platforms', 'solution', 'solutions', 'tool', 'tools',
+    'website', 'site', 'agency', 'vendor', 'app', 'provider', 'system',
     'option', 'options', 'alternative', 'alternatives', 'example', 'examples',
     'chatgpt', 'gemini', 'claude', 'perplexity', 'openai', 'google', 'anthropic',
     'microsoft', 'copilot', 'wikipedia', 'reddit', 'forbes',
@@ -195,6 +197,8 @@ function isPlausibleBrand(name: string, brand: string, known: string[]): boolean
   if (known.some((k) => namesEqual(k, name))) return false;
   const words = name.split(/\s+/);
   if (words.some((w) => STOP_ENTITIES.has(w.toLowerCase()))) return false;
+  if (isGenericCompetitorName(name)) return false;
+  if (!looksLikeProperNoun(name)) return false;
   if (name.length < 3 || name.length > 48) return false;
   if (/^(In|On|At|To|As|If|We|It|An|A)$/i.test(words[0])) return false;
   return true;

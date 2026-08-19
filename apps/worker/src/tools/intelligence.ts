@@ -19,7 +19,6 @@ import type {
   CoOccurrence,
   CompetitorGapRow,
   CompetitorRow,
-  Confidence,
   Coverage,
   CrawlSnapshot,
   DayPlan,
@@ -31,6 +30,7 @@ import type {
   Opportunity,
   Perception,
   PlatformPerformance,
+  PlatformRunStatus,
   PlatformSpotlight,
   PromptResult,
   QueryOutcome,
@@ -42,6 +42,26 @@ import type {
   WeekPlan,
 } from '../types/report';
 import { REPORT_VERSION } from '../types/report';
+import { confidenceOf, onSiteConfidenceOf, METHODOLOGY_VERSION, sampleCaveatFor } from '../config/methodology';
+import { recMetadataFor, NO_CATEGORY_BENCHMARK } from '../config/recommendations';
+import {
+  computeBuddyScore,
+  computeAiVisibilityScore,
+  computeOnSiteReadinessScore,
+  displayedScore,
+  buildDisplayedMetrics,
+} from './score-formula';
+import {
+  classifyLlmAnswer,
+  sanitizeReportString,
+  validateCompetitorName,
+  resolveFaqSignal,
+  assertExclusiveSignalKeys,
+  isGenericCompetitorName,
+  isRefusalText,
+  looksLikeProperNoun,
+  oneThingFromRanked,
+} from './report-integrity';
 
 export type IntakeContext = {
   companyName?: string | null;
@@ -55,14 +75,6 @@ export type IntakeContext = {
 
 function clamp(n: number): number {
   return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-function gradeOf(score: number): string {
-  if (score >= 85) return 'A';
-  if (score >= 70) return 'B';
-  if (score >= 55) return 'C';
-  if (score >= 40) return 'D';
-  return 'F';
 }
 
 function avg(nums: number[]): number | null {
@@ -130,24 +142,29 @@ export function enrichResearch(
   websiteUrl: string,
   knownCompetitors: string[],
 ): ResearchRow[] {
-  return research.map((r) => {
+  return research.map((r, idx) => {
     const answer = r.answer || '';
-    const citations = extractCitations(answer);
-    const observed = extractObservedBrands(answer, brand, knownCompetitors);
+    const status = classifyLlmAnswer(answer, r.error);
+    const failed = status !== 'success';
+    const citations = failed ? [] : extractCitations(answer);
+    const observed = failed ? [] : extractObservedBrands(answer, brand, knownCompetitors);
     const allOthers = uniqueNames([...knownCompetitors, ...observed]);
+    const id = `${r.platform || r.model}:${idx}:${r.question.slice(0, 40)}`;
+    void id;
     return {
       model: r.model,
       platform: r.platform || platformFromModel(r.model),
       question: r.question,
-      answer,
-      brandMentioned: r.error ? false : detectMention(answer, brand),
-      brandPosition: r.error ? null : brandPosition(answer, brand, allOthers),
-      competitorsMentioned: r.error ? [] : mentionedOf(answer, knownCompetitors, brand),
-      observedBrands: r.error ? [] : observed,
+      answer: failed ? '' : answer,
+      brandMentioned: failed ? false : detectMention(answer, brand),
+      brandPosition: failed ? null : brandPosition(answer, brand, allOthers),
+      competitorsMentioned: failed ? [] : mentionedOf(answer, knownCompetitors, brand),
+      observedBrands: failed ? [] : observed,
       citations,
-      ownDomainCited: r.error ? false : ownDomainCited(citations, websiteUrl),
-      sentiment: r.error ? null : inferSentiment(answer, brand),
-      error: r.error,
+      ownDomainCited: failed ? false : ownDomainCited(citations, websiteUrl),
+      sentiment: failed ? null : inferSentiment(answer, brand),
+      status,
+      error: failed ? r.error || status : undefined,
     };
   });
 }
@@ -239,25 +256,6 @@ function meanScore(rows: SubScore[]): number | null {
   return clamp(nums.reduce((a, b) => a + b, 0) / nums.length);
 }
 
-function confidenceOf(usable: number, platforms: number, queries: number): { level: Confidence; reason: string } {
-  if (usable >= 16 && platforms >= 3 && queries >= 6) {
-    return {
-      level: 'High',
-      reason: `High confidence — ${usable} AI responses across ${platforms} AI platforms and ${queries} queries.`,
-    };
-  }
-  if (usable >= 6 && platforms >= 2) {
-    return {
-      level: 'Medium',
-      reason: `Medium confidence — ${usable} AI responses across ${platforms} AI platform${platforms === 1 ? '' : 's'} and ${queries} quer${queries === 1 ? 'y' : 'ies'}. Sample is usable, not exhaustive.`,
-    };
-  }
-  return {
-    level: 'Low',
-    reason: `Low confidence — ${usable} successful AI response${usable === 1 ? '' : 's'} across ${platforms} platform${platforms === 1 ? '' : 's'} and ${queries} quer${queries === 1 ? 'y' : 'ies'}. Treat LLM metrics as directional.`,
-  };
-}
-
 export function buildIntelligence(params: {
   analysisId: string;
   brandName: string;
@@ -268,7 +266,7 @@ export function buildIntelligence(params: {
   agentNotes?: string;
   generatedAt?: string;
   engineScores?: { aeo?: number; geo?: number; technical?: number } | null;
-}): Omit<ReportPayload, 'executiveSummary' | 'finalTakeaway' | 'strongestPlatform' | 'weakestPlatform' | 'howToDoBetter' | 'plan7Day' | 'roadmap30' | 'strategy90' | 'opportunities' | 'recommendations' | 'llmEstimates' | 'roadmap30Day' | 'roadmap90Day' | 'competitorInsights' | 'summary' | 'brandCategory' | 'mentionBreakdown' | 'llmStrategies' | 'closestCompetitors'> & {
+}): Omit<ReportPayload, 'executiveSummary' | 'finalTakeaway' | 'strongestPlatform' | 'weakestPlatform' | 'howToDoBetter' | 'plan7Day' | 'roadmap30' | 'strategy90' | 'opportunities' | 'recommendations' | 'llmEstimates' | 'roadmap30Day' | 'roadmap90Day' | 'competitorInsights' | 'summary' | 'brandCategory' | 'mentionBreakdown' | 'llmStrategies' | 'closestCompetitors' | 'oneThingCallout'> & {
   usableCount: number;
   mentionCount: number;
   citationCount: number;
@@ -277,10 +275,15 @@ export function buildIntelligence(params: {
 } {
   const generatedAt = params.generatedAt || new Date().toISOString();
   const brand = params.brandName;
-  const knownCompetitors = parseNameList(params.intake?.competitors);
+  const knownCompetitors = parseNameList(params.intake?.competitors).filter((n) => {
+    const check = validateCompetitorName(n, 99, brand);
+    if (check.ok) return true;
+    process.stderr.write(`[competitor-reject] intake name=${JSON.stringify(n)} reason=${check.reason}\n`);
+    return false;
+  });
   const crawl = snapshotCrawl(params.crawl);
   const research = enrichResearch(params.research, brand, params.websiteUrl, knownCompetitors);
-  const usable = research.filter((r) => r.answer && !r.error);
+  const usable = research.filter((r) => r.status === 'success' || (r.answer && !r.error));
   const mentionRows = usable.filter((r) => r.brandMentioned);
   const citeRows = usable.filter((r) => r.ownDomainCited);
   const mentionRate = rate(mentionRows.length, usable.length);
@@ -288,27 +291,74 @@ export function buildIntelligence(params: {
   const positions = mentionRows.map((r) => r.brandPosition).filter((n): n is number => n != null);
   const avgPos = avg(positions);
 
-  const platformNames = uniqueNames(research.map((r) => r.platform));
-  const modelNames = uniqueNames(research.map((r) => r.model));
+  const queriedPlatforms = uniqueNames(research.map((r) => r.platform));
+  const usablePlatforms = uniqueNames(usable.map((r) => r.platform));
+  const platformNames = usablePlatforms;
+  const modelNames = uniqueNames(usable.map((r) => r.model));
   const queries = uniqueNames(research.map((r) => r.question));
   const observedBrands = uniqueNames(usable.flatMap((r) => [...r.competitorsMentioned, ...r.observedBrands]));
-  const trackedBrands = uniqueNames([brand, ...knownCompetitors, ...observedBrands]);
   const allCitations = usable.flatMap((r) => r.citations);
 
+  const platformStatus: PlatformRunStatus[] = [...new Map(research.map((r) => [`${r.platform}:::${r.model}`, r])).keys()].map(
+    (key) => {
+      const [platform, model] = key.split(':::');
+      const rows = research.filter((r) => r.platform === platform && r.model === model);
+      const ok = rows.filter((r) => r.status === 'success' || (r.answer && !r.error));
+      const statuses = rows.map((r) => r.status || (r.error ? 'error' : r.answer ? 'success' : 'empty'));
+      const worst: PlatformRunStatus['status'] = statuses.includes('success')
+        ? ok.length === rows.length
+          ? 'success'
+          : 'error'
+        : statuses.includes('error')
+          ? 'error'
+          : statuses.includes('refused')
+            ? 'refused'
+            : 'empty';
+      const note =
+        ok.length === 0
+          ? `${platform}: 0/${rows.length} responses returned — excluded from analysis`
+          : ok.length < rows.length
+            ? `${platform}: ${ok.length}/${rows.length} responses usable`
+            : `${platform}: ${ok.length}/${rows.length} responses usable`;
+      return { platform, model: shortModelName(model), queried: rows.length, usable: ok.length, status: worst, note };
+    },
+  );
+
+  const sampleSize = queries.length;
+  const visConf = confidenceOf({
+    usableLlms: usablePlatforms.length,
+    queriedLlms: queriedPlatforms.length,
+    sampleSize,
+  });
+  const siteConf = onSiteConfidenceOf({
+    wordCount: crawl.wordCount,
+    robotsTxtFound: crawl.robotsTxtFound,
+    hasSitemap: crawl.hasSitemap,
+  });
+  const sampleCaveat = sampleCaveatFor(sampleSize);
+  const limitedSample = usablePlatforms.length < 2;
+
   const coverage: Coverage = {
-    platformsTested: platformNames.length,
-    modelsTested: modelNames.length,
+    platformsTested: queriedPlatforms.length,
+    modelsTested: uniqueNames(research.map((r) => r.model)).length,
     queriesTransacted: queries.length,
     responsesAnalyzed: usable.length,
-    brandsTracked: trackedBrands.length,
+    brandsTracked: 1,
     citationsCollected: allCitations.length,
     researchStartedAt: generatedAt,
     researchEndedAt: generatedAt,
-    platformNames,
+    platformNames: usablePlatforms,
     modelNames,
+    platformsQueried: queriedPlatforms.length,
+    platformsUsable: usablePlatforms.length,
+    platformNamesQueried: queriedPlatforms,
+    platformNamesUsable: usablePlatforms,
+    competitorsTracked: 0,
+    limitedSample,
+    platformStatus,
+    sampleSize,
+    sampleCaveat,
   };
-
-  const conf = confidenceOf(usable.length, platformNames.length, queries.length);
 
   const byModel = new Map<string, ResearchRow[]>();
   for (const r of usable) {
@@ -371,27 +421,38 @@ export function buildIntelligence(params: {
       ? null
       : clamp(50 + (mentionRate || 0) * 0.4 - rate(competitorMentions, usable.length)! * 0.35);
 
-  const aiVisibility =
-    usable.length === 0
-      ? null
-      : clamp((mentionRate || 0) * 0.7 + (citationRate || 0) * 0.18 + (avgPos != null ? Math.max(0, 14 - avgPos * 2) : 0) + (usable.length >= 4 ? 6 : 0));
-
-  const buddyScore =
-    aiVisibility == null
-      ? clamp((aeo || 0) * 0.35 + (geo || 0) * 0.3 + (technical || 0) * 0.2 + (entityStrength || 0) * 0.15)
-      : clamp(
-          (aiVisibility || 0) * 0.34 +
-            (aeo || 0) * 0.14 +
-            (geo || 0) * 0.14 +
-            (technical || 0) * 0.1 +
-            (entityStrength || 0) * 0.1 +
-            (citationStrength || 0) * 0.1 +
-            (competitorAdvantage || 50) * 0.08,
-        );
+  const aiVisibilityBreakdown = computeAiVisibilityScore({
+    mentionRate,
+    citationRate,
+    avgPosition: avgPos,
+    usableResponses: usable.length,
+  });
+  const onSiteBreakdown = computeOnSiteReadinessScore({
+    aeo,
+    geo,
+    technical,
+    entityStrength,
+    websiteUrl: params.websiteUrl,
+  });
+  const scoreBreakdown = computeBuddyScore({
+    mentionRate,
+    citationRate,
+    avgPosition: avgPos,
+    aeo,
+    geo,
+    technical,
+    entityStrength,
+    websiteUrl: params.websiteUrl,
+    usableResponses: usable.length,
+  });
+  const aiVisibility = displayedScore(aiVisibilityBreakdown);
+  const onSiteReadiness = displayedScore(onSiteBreakdown);
+  const buddyScore = displayedScore(scoreBreakdown);
 
   const scores: Scorecard = {
     buddyScore,
     aiVisibility,
+    onSiteReadiness,
     aeo,
     geo,
     technical,
@@ -429,8 +490,15 @@ export function buildIntelligence(params: {
   });
 
   const missingSignals = buildMissingSignals(crawl);
+  assertExclusiveSignalKeys(
+    strengths.map((s) => ({ id: s.id })),
+    gaps.map((g) => ({ id: g.id })),
+    missingSignals.map((m) => ({ id: m.id })),
+  );
 
   const competitorRows = buildCompetitors(usable, knownCompetitors, observedBrands, brand);
+  coverage.competitorsTracked = competitorRows.length;
+  coverage.brandsTracked = 1 + competitorRows.length;
   const shareOfVoice = buildShareOfVoice(usable, brand, competitorRows);
   const coOccurrence = buildCoOccurrence(usable, brand);
   const competitorGaps = buildCompetitorGaps({
@@ -446,23 +514,27 @@ export function buildIntelligence(params: {
   const promptResults = buildPromptResults(research);
   const winningQueries = buildWinning(usable);
   const losingQueries = buildLosing(usable, brand);
-  const citedDomains = buildCitedDomains(usable, params.websiteUrl, knownCompetitors);
+  const citedDomains = buildCitedDomains(usable, params.websiteUrl, competitorRows.map((c) => c.name));
   const citationGaps = buildCitationGaps(usable, brand, params.websiteUrl, competitorRows);
   const perception = buildPerception(usable);
-  const entityProfile = buildEntityProfile(brand, crawl, params.intake, knownCompetitors, observedBrands);
+  const entityProfile = buildEntityProfile(brand, crawl, params.intake, competitorRows.map((c) => c.name), competitorRows.map((c) => c.name));
 
   const methodologyNotes = [
-    `${coverage.platformsTested} AI platform${coverage.platformsTested === 1 ? '' : 's'} were actually queried: ${coverage.platformNames.join(', ') || 'none'}.`,
-    `${coverage.modelsTested} model${coverage.modelsTested === 1 ? '' : 's'} tested: ${coverage.modelNames.join(', ') || 'none'}.`,
+    `${coverage.platformsQueried} LLM${coverage.platformsQueried === 1 ? '' : 's'} queried (${coverage.platformNamesQueried.join(', ') || 'none'}); ${coverage.platformsUsable} returned usable data (${coverage.platformNamesUsable.join(', ') || 'none'}).`,
+    ...coverage.platformStatus.filter((p) => p.usable === 0).map((p) => p.note),
+    `${coverage.modelsTested} model${coverage.modelsTested === 1 ? '' : 's'} with usable answers: ${coverage.modelNames.join(', ') || 'none'}.`,
     `${coverage.queriesTransacted} unique prompts were sent; ${coverage.responsesAnalyzed} successful responses were analyzed.`,
+    coverage.limitedSample ? 'LIMITED SAMPLE (AI Visibility only): fewer than 2 LLMs returned usable data. Treat mention/citation/position as directional.' : '',
     'Prompts are buyer-style questions generated from the intake (products, audience, markets, competitors) plus the crawled homepage.',
     'Brand mentions are detected by exact and token matching against the company name — not by asking the model to score itself.',
     'Citations are extracted only from URLs present in the model answer. Missing URLs are recorded as N/A, not inferred.',
-    'Competitor analysis starts from names supplied in intake, then adds brands that actually appeared in sampled answers.',
+    'Competitor names are validated (proper noun, not a generic word, at least 2 independent mentions) before they enter the report.',
     'AEO, GEO, and technical scores are computed from observable on-page and HTTP signals on the crawled URL, robots.txt, and sitemap.xml.',
-    'BuddyScore is a proprietary BuddyAds.ai composite of on-site signals and sampled AI answers. It is not an internal ranking from OpenAI, Google, Anthropic, Perplexity, or any other provider.',
-    conf.reason,
-  ];
+    'AI Visibility and On-site AI-readiness are separate scores. Weights never redistribute across the two. Legacy BuddyScore is an appendix figure only and is not comparable across methodologyVersion changes.',
+    coverage.sampleCaveat ? `AI Visibility: ${coverage.sampleCaveat}` : '',
+    visConf.reason,
+    siteConf.reason,
+  ].filter(Boolean);
 
   return {
     version: REPORT_VERSION,
@@ -470,13 +542,14 @@ export function buildIntelligence(params: {
     brandName: brand,
     websiteUrl: params.websiteUrl,
     generatedAt,
-    overall: buddyScore ?? 0,
+    overall: aiVisibility ?? 0,
     aeo: aeo ?? 0,
     geo: geo ?? 0,
     llmReady: aiVisibility ?? 0,
-    grade: gradeOf(buddyScore ?? 0),
-    confidence: conf.level,
-    confidenceReason: conf.reason,
+    confidence: visConf.level,
+    confidenceReason: visConf.reason,
+    onSiteConfidence: siteConf.level,
+    onSiteConfidenceReason: siteConf.reason,
     scores,
     coverage,
     platformPerformance,
@@ -499,6 +572,31 @@ export function buildIntelligence(params: {
     entityProfile,
     perception,
     methodologyNotes,
+    scoreBreakdown,
+    aiVisibilityBreakdown,
+    onSiteBreakdown,
+    methodologyVersion: METHODOLOGY_VERSION,
+    categoryBenchmark: NO_CATEGORY_BENCHMARK,
+    displayedMetrics: buildDisplayedMetrics({
+      buddyScore,
+      aiVisibility,
+      onSiteReadiness,
+      sampleSize,
+      queriedLlms: queriedPlatforms.length,
+      usableLlms: usablePlatforms.length,
+      responsesAnalyzed: usable.length,
+      mentionRate,
+      citationRate,
+      avgPosition: avgPos,
+      competitorsTracked: competitorRows.length,
+      aeo,
+      geo,
+      technical,
+      entityStrength,
+      websiteUrl: params.websiteUrl,
+      aiVisibilityBreakdown,
+      onSiteBreakdown,
+    }),
     crawl,
     research,
     usableCount: usable.length,
@@ -550,7 +648,7 @@ function buildStrengths(p: {
       impact: 'Early placement in a recommendation list is closer to a shortlist than a footnote.',
     });
   }
-  if (p.crawl.hasOrgSchema || p.crawl.hasSchema) {
+  if (p.crawl.hasOrgSchema) {
     items.push({
       id: 'entity',
       title: 'Machine-readable entity signals',
@@ -561,14 +659,12 @@ function buildStrengths(p: {
       impact: 'Clear entity markup helps generative engines ground who you are and what you offer.',
     });
   }
-  if (p.crawl.hasFaq || p.crawl.hasFaqSchema) {
+  if (p.crawl.hasFaqSchema) {
     items.push({
       id: 'faq',
       title: 'Answer-ready content',
-      metric: p.crawl.hasFaqSchema ? 'FAQPage schema' : 'FAQ content detected',
-      evidence: p.crawl.hasFaqSchema
-        ? 'FAQPage structured data is present, which models can extract as Q&A.'
-        : 'FAQ language was detected on the crawled page.',
+      metric: 'FAQPage schema',
+      evidence: 'FAQPage structured data is present, which models can extract as Q&A.',
       impact: 'Explicit Q&A is one of the most extractable formats for answer engines.',
     });
   }
@@ -635,7 +731,7 @@ function buildGaps(p: {
       title: 'Weak competitor differentiation',
       metric: `${p.competitorMentions} responses named competitors vs ${p.mentions} naming you`,
       evidence: p.knownCompetitors.length
-        ? `Tracked competitors: ${p.knownCompetitors.join(', ')}.`
+        ? `Tracked competitors: ${p.knownCompetitors.map((n) => sanitizeReportString(n)).filter(Boolean).join(', ') || 'none validated'}.`
         : 'Other brands appeared more often than you in category-style answers.',
       impact: 'High',
       area: 'AI Visibility',
@@ -653,36 +749,15 @@ function buildGaps(p: {
       severity: 'Medium',
     });
   }
-  if (!p.crawl.hasFaq && !p.crawl.hasFaqSchema) {
+  const faq = resolveFaqSignal(Boolean(p.crawl.hasFaq), Boolean(p.crawl.hasFaqSchema));
+  if (faq.bucket === 'poorly') {
     items.push({
-      id: 'faq-gap',
-      title: 'Missing answer-shaped content',
-      metric: 'FAQ not detected',
-      evidence: 'The crawled page did not expose a FAQ block or FAQPage schema.',
+      id: 'faq',
+      title: 'FAQ language without FAQPage schema',
+      metric: 'Partial — text only',
+      evidence: 'FAQ-style language was detected, but FAQPage structured data was not. Assistants can guess Q&A from copy; they cannot extract it as a block.',
       impact: 'Medium',
       area: 'AEO',
-      severity: 'Medium',
-    });
-  }
-  if (!p.crawl.hasProductSchema) {
-    items.push({
-      id: 'product-schema',
-      title: 'Product / service entity is under-specified',
-      metric: 'No Product or Service schema',
-      evidence: 'JSON-LD did not include Product, Service, or SoftwareApplication types.',
-      impact: 'Medium',
-      area: 'GEO',
-      severity: 'Medium',
-    });
-  }
-  if (!p.crawl.hasComparison) {
-    items.push({
-      id: 'comparison',
-      title: 'No comparison surface for category queries',
-      metric: 'Comparison copy not detected',
-      evidence: 'The crawled page did not discuss alternatives, versus, or comparisons.',
-      impact: 'Medium',
-      area: 'Content',
       severity: 'Medium',
     });
   }
@@ -702,19 +777,22 @@ function buildGaps(p: {
 
 function buildMissingSignals(c: CrawlSnapshot): MissingSignal[] {
   const rows: MissingSignal[] = [];
-  const push = (on: boolean, signal: string, observed: string, why: string, rec: string) => {
-    if (!on) rows.push({ signal, observed, whyItMatters: why, recommendation: rec });
+  const push = (on: boolean, id: string, signal: string, observed: string, why: string, rec: string) => {
+    if (!on) rows.push({ id, signal, observed, whyItMatters: why, recommendation: rec });
   };
-  push(!c.hasFaq && !c.hasFaqSchema, 'FAQ content', 'No FAQ block or FAQPage schema detected.', 'Answer engines prefer explicit questions and short answers.', 'Publish a public FAQ that mirrors real buyer questions, with FAQPage schema.');
-  push(!c.hasProductSchema, 'Product / Service schema', 'No Product, Service, or SoftwareApplication markup.', 'Without product entities, models guess what you sell from prose alone.', 'Add Product or Service JSON-LD on commercial pages.');
-  push(!c.hasOrgSchema, 'Organization entity', 'Organization schema not detected.', 'Knowledge-graph style systems need a stable organization node.', 'Add Organization JSON-LD with legal name, URL, logo, and sameAs profiles.');
-  push(!c.hasComparison, 'Comparison content', 'No vs / alternative language on the crawled page.', 'Category prompts are often answered as comparisons. If you are absent from that frame, someone else fills it.', 'Ship a comparison or alternatives page that names the real competitive set.');
-  push(!c.hasAuthor && !c.hasPersonSchema, 'Expert authorship', 'No author / Person signals detected.', 'Cited pages often carry a named expert. Anonymous pages are harder to treat as authority.', 'Add bylines, Person schema, and credentials on research and explainer pages.');
-  push(!c.hasLocation && !c.hasLocalBusiness, 'Location information', 'No address or LocalBusiness signals detected.', 'Geo and “near me” style prompts need a place entity.', 'Publish locations (or service areas) in copy and LocalBusiness schema if relevant.');
-  push(!c.hasAbout, 'About / entity story', 'About-page cues were weak or absent.', 'Models use About copy to decide what the company is.', 'Make the About page explicit: who you are, what you sell, who you serve.');
-  push(c.externalLinkCount < 2, 'Authoritative references', `Only ${c.externalLinkCount} external links counted.`, 'Outbound references to standards, research, and partners help models corroborate claims.', 'Cite primary sources, certifications, and third-party proof on key pages.');
-  push(c.questionHeadings < 2, 'Topical question coverage', `${c.questionHeadings} question-style headings.`, 'If you never phrase the buyer’s question, assistants borrow someone else’s framing.', 'Turn high-intent queries into H2s with direct-answer openings.');
-  push(!c.hasSitemap, 'XML sitemap', c.hasSitemap === false ? 'sitemap.xml not found.' : 'Sitemap probe inconclusive.', 'Sitemaps help discovery of the pages you actually want cited.', 'Publish and reference a complete XML sitemap.');
+  const faq = resolveFaqSignal(Boolean(c.hasFaq), Boolean(c.hasFaqSchema));
+  if (faq.bucket === 'missing') {
+    push(false, 'faq', 'FAQ content', 'No FAQ block or FAQPage schema detected.', 'Answer engines prefer explicit questions and short answers.', 'Publish a public FAQ that mirrors real buyer questions, with FAQPage schema.');
+  }
+  push(!c.hasProductSchema, 'product-schema', 'Product / Service schema', 'No Product, Service, or SoftwareApplication markup.', 'Without product entities, models guess what you sell from prose alone.', 'Add Product or Service JSON-LD on commercial pages.');
+  push(!c.hasOrgSchema, 'entity', 'Organization entity', 'Organization schema not detected.', 'Knowledge-graph style systems need a stable organization node.', 'Add Organization JSON-LD with legal name, URL, logo, and sameAs profiles.');
+  push(!c.hasComparison, 'comparison', 'Comparison content', 'No vs / alternative language on the crawled page.', 'Category prompts are often answered as comparisons. If you are absent from that frame, someone else fills it.', 'Ship a comparison or alternatives page that names the real competitive set.');
+  push(!c.hasAuthor && !c.hasPersonSchema, 'author', 'Expert authorship', 'No author / Person signals detected.', 'Cited pages often carry a named expert. Anonymous pages are harder to treat as authority.', 'Add bylines, Person schema, and credentials on research and explainer pages.');
+  push(!c.hasLocation && !c.hasLocalBusiness, 'location', 'Location information', 'No address or LocalBusiness signals detected.', 'Geo and “near me” style prompts need a place entity.', 'Publish locations (or service areas) in copy and LocalBusiness schema if relevant.');
+  push(!c.hasAbout, 'about', 'About / entity story', 'About-page cues were weak or absent.', 'Models use About copy to decide what the company is.', 'Make the About page explicit: who you are, what you sell, who you serve.');
+  push(c.externalLinkCount < 2, 'links', 'Authoritative references', `Only ${c.externalLinkCount} external links counted.`, 'Outbound references to standards, research, and partners help models corroborate claims.', 'Cite primary sources, certifications, and third-party proof on key pages.');
+  push(c.questionHeadings < 2, 'questions', 'Topical question coverage', `${c.questionHeadings} question-style headings.`, 'If you never phrase the buyer’s question, assistants borrow someone else’s framing.', 'Turn high-intent queries into H2s with direct-answer openings.');
+  push(!c.hasSitemap, 'sitemap', 'XML sitemap', c.hasSitemap === false ? 'sitemap.xml not found.' : 'Sitemap probe inconclusive.', 'Sitemaps help discovery of the pages you actually want cited.', 'Publish and reference a complete XML sitemap.');
   return rows.slice(0, 10);
 }
 
@@ -725,7 +803,7 @@ function buildCompetitors(
   brand: string,
 ): CompetitorRow[] {
   const names = uniqueNames([...known, ...observed]).filter((n) => n.toLowerCase() !== brand.toLowerCase());
-  return names
+  const ranked = names
     .map((name) => {
       const hits = usable.filter((r) => detectMention(r.answer, name));
       const cites = hits.filter((r) => r.citations.length > 0).length;
@@ -739,9 +817,16 @@ function buildCompetitors(
         favoredBy: platforms,
       };
     })
-    .filter((c) => c.mentions > 0)
-    .sort((a, b) => b.mentions - a.mentions)
-    .slice(0, 12);
+    .sort((a, b) => b.mentions - a.mentions);
+
+  return ranked.filter((c) => {
+    const check = validateCompetitorName(c.name, c.mentions, brand);
+    if (!check.ok) {
+      process.stderr.write(`[competitor-reject] name=${JSON.stringify(c.name)} mentions=${c.mentions} reason=${check.reason}\n`);
+      return false;
+    }
+    return true;
+  }).slice(0, 12);
 }
 
 function buildShareOfVoice(
@@ -867,7 +952,9 @@ function buildLosing(usable: ResearchRow[], brand: string): QueryOutcome[] {
   return usable
     .filter((r) => !r.brandMentioned && (r.competitorsMentioned.length > 0 || r.observedBrands.length > 0))
     .map((r) => {
-      const who = uniqueNames([...r.competitorsMentioned, ...r.observedBrands]);
+      const who = uniqueNames([...r.competitorsMentioned, ...r.observedBrands]).filter(
+        (n) => !isGenericCompetitorName(n) && !isRefusalText(n) && looksLikeProperNoun(n),
+      );
       return {
         query: r.question,
         platform: r.platform,
@@ -876,7 +963,9 @@ function buildLosing(usable: ResearchRow[], brand: string): QueryOutcome[] {
         cited: r.ownDomainCited,
         competitors: who.slice(0, 5),
         whoWon: who[0],
-        why: `${brand} was not named; ${who.slice(0, 3).join(', ')} appeared instead.`,
+        why: who.length
+          ? `${brand} was not named; ${who.slice(0, 3).join(', ')} appeared instead.`
+          : `${brand} was not named in this sampled answer.`,
         missing: 'A citable comparison, category proof, or third-party mention that would justify inclusion.',
         opportunity: `Create an answer-ready page that directly addresses this query and names the competitive set.`,
       };
@@ -919,25 +1008,28 @@ function buildCitationGaps(
     usable.filter((r) => r.brandMentioned).flatMap((r) => r.citations.map((c) => c.domain)),
   );
   ownDomains.add(host);
-  return competitors.slice(0, 5).map((comp) => {
-    const domains = uniqueNames(
-      usable
-        .filter((r) => detectMention(r.answer, comp.name))
-        .flatMap((r) => r.citations.map((c) => c.domain))
-        .filter((d) => !ownDomains.has(d)),
-    ).slice(0, 8);
-    const yours = uniqueNames(
-      usable.filter((r) => r.brandMentioned).flatMap((r) => r.citations.map((c) => c.domain)),
-    ).slice(0, 8);
-    return {
-      competitor: comp.name,
-      domains,
-      yours,
-      opportunity: domains.length
-        ? `Earn mentions or coverage on ${domains.slice(0, 3).join(', ')} — sources that already appear when AI discusses ${comp.name}.`
-        : `No third-party domains were extracted for ${comp.name} in this sample.`,
-    };
-  });
+  return competitors
+    .slice(0, 5)
+    .map((comp) => {
+      const rows = usable.filter((r) => detectMention(r.answer, comp.name) && r.citations.length > 0);
+      const domains = uniqueNames(
+        rows
+          .flatMap((r) => r.citations.map((c) => c.domain))
+          .filter((d) => !ownDomains.has(d)),
+      ).slice(0, 8);
+      const yours = uniqueNames(
+        usable.filter((r) => r.brandMentioned).flatMap((r) => r.citations.map((c) => c.domain)),
+      ).slice(0, 8);
+      const sourceRefs = rows.map((r) => `${r.platform}:${r.question}`).slice(0, 8);
+      return {
+        competitor: comp.name,
+        domains,
+        yours,
+        sourceRefs,
+        opportunity: `Earn mentions or coverage on ${domains.slice(0, 3).join(', ')} — sources that already appear when AI discusses ${comp.name}.`,
+      };
+    })
+    .filter((row) => row.domains.length > 0 && row.sourceRefs.length > 0);
 }
 
 function buildPerception(usable: ResearchRow[]): Perception | null {
@@ -1049,7 +1141,9 @@ export function fallbackNarrative(intel: ReturnType<typeof buildIntelligence>): 
       }
     : null;
 
-  const howTo: HowToItem[] = intel.gaps.slice(0, 5).map((g) => ({
+  const howTo: HowToItem[] = intel.gaps.slice(0, 5).map((g) => {
+    const meta = recMetadataFor(g.id);
+    return {
     problem: g.title,
     whyItMatters: g.impact === 'High' || g.severity === 'High'
       ? 'This gap changes whether an assistant includes you in a buying shortlist.'
@@ -1059,7 +1153,7 @@ export function fallbackNarrative(intel: ReturnType<typeof buildIntelligence>): 
       ? 'Publish answer-ready FAQ and comparison content with schema.'
       : `Fix the observed ${g.area || 'visibility'} gap with citable, entity-clear content.`,
     implementation:
-      g.id === 'faq-gap'
+      g.id === 'faq'
         ? 'List the 10 questions buyers actually ask (use Losing Queries). Answer each in 40–80 words, then add FAQPage JSON-LD.'
         : g.id === 'product-schema'
           ? 'Add Product/Service JSON-LD (name, description, brand, URL) on the homepage and key commercial URLs.'
@@ -1072,22 +1166,39 @@ export function fallbackNarrative(intel: ReturnType<typeof buildIntelligence>): 
     difficulty: g.id.includes('schema') || g.id.includes('faq') ? 'Easy' : g.id.includes('mention') ? 'Hard' : 'Medium',
     expectedImpact:
       g.area === 'AI Visibility'
-        ? 'Potential impact on mention rate and BuddyScore directionally, not a guaranteed point increase.'
+        ? 'Potential impact on mention rate and AI Visibility directionally, not a guaranteed point increase.'
         : `Potential improvement in ${g.area || 'on-site AI readiness'} based on the missing signal observed.`,
-  }));
+    sourceRef: `crawl:${intel.websiteUrl}#${g.id}`,
+    findingId: g.id,
+    effort: meta.effort,
+    ownerType: meta.ownerType,
+    timeToImpact: meta.timeToImpact,
+  };
+  });
 
-  const missingHow: HowToItem[] = intel.missingSignals.slice(0, 3).map((m) => ({
+  const missingHow: HowToItem[] = intel.missingSignals.slice(0, 3).map((m) => {
+    const meta = recMetadataFor(m.id);
+    return {
     problem: m.signal,
     whyItMatters: m.whyItMatters,
     evidence: m.observed,
     recommendedAction: m.recommendation,
     implementation: m.recommendation,
-    priority: 'Medium',
-    difficulty: 'Easy',
+    priority: 'Medium' as const,
+    difficulty: 'Easy' as const,
     expectedImpact: 'Potential improvement in AEO/GEO extractability. Not a guaranteed score change.',
-  }));
+    sourceRef: `crawl:${intel.websiteUrl}#${m.signal}`,
+    findingId: m.id,
+    effort: meta.effort,
+    ownerType: meta.ownerType,
+    timeToImpact: meta.timeToImpact,
+  };
+  });
 
-  const howToDoBetter = (howTo.length ? howTo : missingHow).slice(0, 6);
+  const howToDoBetter = (howTo.length ? howTo : missingHow)
+    .filter((h) => Boolean(h.sourceRef && h.effort && h.ownerType && h.timeToImpact))
+    .slice(0, 6);
+  const oneThing = oneThingFromRanked(howToDoBetter);
 
   const opportunities: Opportunity[] = howToDoBetter.slice(0, 5).map((h, i) => ({
     rank: i + 1,
@@ -1140,13 +1251,14 @@ export function fallbackNarrative(intel: ReturnType<typeof buildIntelligence>): 
   const next = howToDoBetter.slice(0, 3).map((x) => x.recommendedAction);
 
   const executiveSummary = {
-    where: `${intel.brandName} BuddyScore is ${fmtNum(s.buddyScore)} / 100 (grade ${intel.grade}), with ${intel.confidence.toLowerCase()} research confidence.`,
+    where: `${intel.brandName} AI Visibility is ${fmtNum(s.aiVisibility)} / 100 (${intel.confidence.toLowerCase()} confidence). On-site AI-readiness is ${fmtNum(s.onSiteReadiness)} / 100 (${intel.onSiteConfidence.toLowerCase()} confidence).`,
     visibility: intel.usableCount
-      ? `Mentioned in ${intel.mentionCount}/${intel.usableCount} successful responses (${fmtPct(rate(intel.mentionCount, intel.usableCount))}). Own-domain citations in ${intel.citationCount}/${intel.usableCount} (${fmtPct(intel.ownCitationRate)}). AI visibility ${fmtNum(s.aiVisibility)}.`
-      : 'No successful AI responses were available in this run, so visibility metrics are N/A. On-site AEO/GEO/technical scores still apply.',
+      ? `Mentioned in ${intel.mentionCount}/${intel.usableCount} successful responses (${fmtPct(rate(intel.mentionCount, intel.usableCount))}). Own-domain citations in ${intel.citationCount}/${intel.usableCount} (${fmtPct(intel.ownCitationRate)}).`
+      : 'No successful AI responses were available in this run, so AI Visibility is N/A. On-site AEO/GEO/technical scores still apply.',
     strengths: topStrengths.length ? topStrengths : ['On-site signals were collected; LLM strengths need a successful multi-model sample.'],
     gaps: topGaps.length ? topGaps : intel.missingSignals.slice(0, 3).map((m) => m.signal),
     next: next.length ? next : ['Re-run with configured AI platforms to fill visibility metrics.'],
+    oneThing,
   };
 
   const summary = [
@@ -1157,13 +1269,13 @@ export function fallbackNarrative(intel: ReturnType<typeof buildIntelligence>): 
 
   const finalTakeaway = intel.usableCount
     ? `AI already has a partial picture of ${intel.brandName}. The work now is to become the brand assistants can name, place, and cite — starting with the 7-day entity, FAQ, and comparison fixes, then the 30- and 90-day authority plan.`
-    : `We could not sample live AI answers in this run. Treat AEO, GEO, and technical findings as the foundation, then re-run once model access is configured so BuddyScore includes real mention and citation evidence.`;
+    : `We could not sample live AI answers in this run. Treat AEO, GEO, and technical findings as the foundation, then re-run once model access is configured so AI Visibility includes real mention and citation evidence.`;
 
   const competitorInsights = intel.competitors.length
     ? `Closest competitors in this sample: ${intel.competitors.slice(0, 3).map((c) => c.name).join(', ')}. AI named them alongside or instead of ${intel.brandName}. ${intel.coOccurrence.length ? `Most frequent co-occurrence: ${intel.coOccurrence[0].brand} (${intel.coOccurrence[0].count}).` : ''}`
     : intel.usableCount
-      ? `No tracked competitors were detected in sampled answers. ${intel.coverage.brandsTracked <= 1 ? 'Add competitor names on intake to measure share of voice more precisely.' : 'Tracked names did not appear in this sample.'}`
-      : 'Competitor visibility requires successful AI responses.';
+      ? 'No competitors could be reliably identified from this sample'
+      : 'No competitors could be reliably identified from this sample';
 
   return {
     summary,

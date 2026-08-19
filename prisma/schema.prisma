@@ -60,6 +60,7 @@ model Report {
   aeo       Int
   geo       Int
   llmReady  Int
+  /// Unused. Letter grades were dropped in methodology 2026.08.3; kept NOT NULL for existing rows. Writers persist "".
   grade     String
   summary   String
   payload   String

@@ -41,7 +41,6 @@ export default async function ReportPage({
     aeo: report.aeo,
     geo: report.geo,
     llmReady: report.llmReady,
-    grade: report.grade,
     summary: report.summary,
     token: report.token,
     analysisId: report.jobId,

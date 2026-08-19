@@ -1,5 +1,6 @@
 import { chatCompletionsQuery, envOr, isApiKeyConfigured, requireApiKey } from './http';
 import { platformFromModel } from '../tools/platforms';
+import { METHODOLOGY } from '../config/methodology';
 
 export type ProviderHit = {
   id: string;
@@ -144,6 +145,26 @@ async function queryOpenRouter(model: string, prompt: string): Promise<string> {
 }
 
 export async function queryProvider(provider: ProviderHit, prompt: string): Promise<string> {
-  if (provider.native) return queryNative(provider.id, prompt);
-  return queryOpenRouter(provider.model, prompt);
+  return withRetry(
+    () => (provider.native ? queryNative(provider.id, prompt) : queryOpenRouter(provider.model, prompt)),
+    METHODOLOGY.providerRetryAttempts,
+    METHODOLOGY.retryBaseMs,
+  );
+}
+
+async function withRetry<T>(fn: () => Promise<T>, attempts: number, baseMs: number): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      last = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const retryable = /429|503|502|504|timeout|HTTP 5|empty content|rate/i.test(msg);
+      if (!retryable || i === attempts - 1) throw err;
+      const wait = baseMs * 2 ** i + Math.floor(Math.random() * 250);
+      await new Promise((resolve) => setTimeout(resolve, wait));
+    }
+  }
+  throw last;
 }

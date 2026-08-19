@@ -7,6 +7,7 @@ import {
   computeLlmStrategies,
   computeMentionBreakdown,
 } from './report-derived';
+import { sanitizeDeep, containsRefusalLeak, keepCompleteRecommendations, oneThingFromRanked } from './report-integrity';
 import { writeNarrative } from './narrative';
 import type { ReportPayload } from '../types/report';
 
@@ -43,7 +44,9 @@ export async function buildReport(params: {
     narrative = fallbackNarrative(intel);
   }
 
-  const recommendations = narrative.howToDoBetter.map((h) => ({
+  const howToDoBetter = keepCompleteRecommendations(narrative.howToDoBetter);
+  const oneThingCallout = oneThingFromRanked(howToDoBetter);
+  const recommendations = howToDoBetter.map((h) => ({
     title: h.recommendedAction,
     detail: h.implementation,
     priority: h.priority.toLowerCase(),
@@ -84,7 +87,7 @@ export async function buildReport(params: {
 
   const brandCategory = computeBrandCategory({
     brandName: params.brandName,
-    buddyScore: intel.scores.buddyScore,
+    buddyScore: intel.scores.aiVisibility,
     mentionRate,
     citationRate: intel.ownCitationRate,
     avgPosition,
@@ -106,10 +109,10 @@ export async function buildReport(params: {
     ? `Closest competitors: ${closestCompetitors.map((c) => c.name).join(', ')}. ${narrative.competitorInsights}`
     : narrative.competitorInsights;
 
-  return {
+  const payload = {
     ...facts,
     summary: narrative.summary,
-    executiveSummary: narrative.executiveSummary,
+    executiveSummary: { ...narrative.executiveSummary, oneThing: oneThingCallout },
     brandCategory,
     mentionBreakdown,
     llmStrategies,
@@ -118,7 +121,8 @@ export async function buildReport(params: {
     strongestPlatform: narrative.strongestPlatform,
     weakestPlatform: narrative.weakestPlatform,
     opportunities: narrative.opportunities,
-    howToDoBetter: narrative.howToDoBetter,
+    howToDoBetter,
+    oneThingCallout,
     plan7Day: narrative.plan7Day,
     roadmap30: narrative.roadmap30,
     strategy90: narrative.strategy90,
@@ -128,4 +132,9 @@ export async function buildReport(params: {
     roadmap90Day,
     competitorInsights,
   };
+  const cleaned = sanitizeDeep(payload);
+  if (containsRefusalLeak(JSON.stringify(cleaned))) {
+    process.stderr.write('[report-integrity] residual refusal language after sanitizer\n');
+  }
+  return cleaned;
 }

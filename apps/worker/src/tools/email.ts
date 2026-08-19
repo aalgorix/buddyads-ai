@@ -19,7 +19,7 @@ export async function sendReportEmail(params: {
   const bookCallUrl = params.bookCallUrl || getBookCallUrl();
   const brand = params.brandName || 'your brand';
   const scoresRow = `<p style="margin:16px 0;padding:14px 16px;background:#f4f7fb;border-radius:12px;font-size:14px">
-          <strong>Overall:</strong> ${params.overall}
+          <strong>AI Visibility:</strong> ${params.overall}
           &nbsp;·&nbsp; <strong>AEO:</strong> ${params.aeo ?? '—'}
           &nbsp;·&nbsp; <strong>GEO:</strong> ${params.geo ?? '—'}
         </p>`;
@@ -43,7 +43,7 @@ export async function sendReportEmail(params: {
           ${scoresRow}
           <p>Inside your report you'll discover:</p>
           <ul style="padding-left:18px;color:#333">
-            <li>BuddyScore and AI platform performance</li>
+            <li>AI Visibility, on-site AI-readiness, and platform performance</li>
             <li>What AI recommends instead of you</li>
             <li>Citation and competitor gaps</li>
             <li>AEO, GEO, and technical AI readiness</li>
@@ -56,7 +56,7 @@ export async function sendReportEmail(params: {
             <a href="${bookCallUrl}" style="color:#2563eb;font-weight:600;text-decoration:none">Book a Free AI Strategy Call →</a>
           </p>
           <p style="color:#6b7280;font-size:12px;border-top:1px solid #eee;padding-top:16px">
-            BuddyScore is a proprietary BuddyAds.ai measurement based on observable AI responses and website signals. It is not an internal ranking from OpenAI, Google, Anthropic, Perplexity, or any other AI provider.
+            AI Visibility and On-site AI-readiness are proprietary BuddyAds.ai measurements from sampled AI answers and crawled website signals. They are not internal ranking scores from OpenAI, Google, Anthropic, Perplexity, or any other AI provider.
           </p>
           <p style="color:#6b7280;font-size:13px">— The BuddyAds Team</p>
         </div>

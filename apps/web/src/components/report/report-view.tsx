@@ -93,9 +93,9 @@ export function ReportView({ report }: { report: IntelligenceReport }) {
               </Link>
             </div>
             <p className="pb-16 text-xs leading-relaxed text-[#8b8680]">
-              BuddyScore is a proprietary BuddyAds.ai measurement based on observable AI responses and website signals.
-              It is not an internal ranking score provided by OpenAI, Google, Anthropic, Perplexity, or any other AI
-              provider.
+              AI Visibility and On-site AI-readiness are proprietary BuddyAds.ai measurements from sampled AI answers
+              and crawled website signals. They are not internal ranking scores from OpenAI, Google, Anthropic,
+              Perplexity, or any other AI provider.
             </p>
           </div>
         </main>

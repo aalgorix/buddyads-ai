@@ -24,6 +24,9 @@ importers:
       '@buddyads/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@buddyads/report-pdf':
+        specifier: workspace:*
+        version: link:../../packages/report-pdf
       '@elevenlabs/react':
         specifier: ^1.12.1
         version: 1.12.1(@types/dom-mediacapture-record@1.0.22)(react@19.2.8)
@@ -91,6 +94,9 @@ importers:
       '@buddyads/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@buddyads/report-pdf':
+        specifier: workspace:*
+        version: link:../../packages/report-pdf
       cheerio:
         specifier: ^1.0.0
         version: 1.2.0
@@ -122,6 +128,12 @@ importers:
       '@prisma/client':
         specifier: ^6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+
+  packages/report-pdf:
+    dependencies:
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
 
 packages:
 

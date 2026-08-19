@@ -37,7 +37,6 @@ export function normalizeReport(
     aeo: number;
     geo: number;
     llmReady: number;
-    grade: string;
     summary: string;
     token: string;
     analysisId: string;
@@ -133,13 +132,13 @@ export function normalizeReport(
     aeo: parsed.aeo ?? meta.aeo,
     geo: parsed.geo ?? meta.geo,
     llmReady: parsed.llmReady ?? meta.llmReady,
-    grade: parsed.grade || meta.grade,
     summary: parsed.summary || meta.summary,
     confidence: conf,
     confidenceReason: `${conf} confidence — ${usable.length} AI responses across ${platforms.length} AI platforms and ${queries.length} queries.`,
     scores: {
       buddyScore: parsed.overall ?? meta.overall,
       aiVisibility: parsed.llmReady ?? meta.llmReady,
+      onSiteReadiness: null,
       aeo: parsed.aeo ?? meta.aeo,
       geo: parsed.geo ?? meta.geo,
       technical: null,
@@ -258,7 +257,7 @@ export function normalizeReport(
       ? [{ month: 1, theme: 'Plan', tasks: parsed.roadmap90Day || [] }]
       : [],
     executiveSummary: {
-      where: `${parsed.brandName || meta.brandName} BuddyScore ${parsed.overall ?? meta.overall}/100 (grade ${parsed.grade || meta.grade}).`,
+      where: `${parsed.brandName || meta.brandName} AI Visibility ${parsed.overall ?? meta.overall}/100.`,
       visibility: usable.length
         ? `Mentioned in ${mentions}/${usable.length} successful responses (${mRate == null ? 'N/A' : `${mRate}%`}).`
         : 'No successful AI responses in this sample.',

@@ -99,7 +99,7 @@ export async function runVisibilityAgent(jobId: string): Promise<void> {
         aeo: report.aeo,
         geo: report.geo,
         llmReady: report.llmReady,
-        grade: report.grade,
+        grade: '', // column retained; letter grades are no longer produced
         summary: report.summary,
         payload: JSON.stringify(report),
         pdfPath,
@@ -111,7 +111,7 @@ export async function runVisibilityAgent(jobId: string): Promise<void> {
         aeo: report.aeo,
         geo: report.geo,
         llmReady: report.llmReady,
-        grade: report.grade,
+        grade: '', // column retained; letter grades are no longer produced
         summary: report.summary,
         payload: JSON.stringify(report),
         pdfPath,

@@ -11,6 +11,7 @@ import type {
   ResearchRow,
 } from './report-types';
 import { mentionRate } from './report-utils';
+import { keepCompleteRecommendations, sanitizeDeep, validateCompetitorName } from './report-integrity';
 
 function rate(num: number, den: number): number | null {
   if (!den) return null;
@@ -37,7 +38,7 @@ export function computeMentionBreakdown(research: ResearchRow[]): MentionBreakdo
 export function computeBrandCategory(report: IntelligenceReport): BrandCategory {
   const usable = report.research.filter((r) => r.answer && !r.error);
   const m = mentionRate(report.research);
-  const score = report.scores.buddyScore ?? report.overall;
+  const score = report.scores.aiVisibility ?? report.overall;
   const cite = report.ownCitationRate ?? 0;
   const positions = usable
     .filter((r) => r.brandMentioned && r.brandPosition != null)
@@ -171,7 +172,7 @@ export function computeClosestCompetitors(params: {
         ? `Rewrite the comparison page so it names ${comp.name} in the H1, first 80 words, and FAQ: "${params.brandName} vs ${comp.name}" plus who each is for.`
         : `Ship /compare/${comp.name.toLowerCase().replace(/\s+/g, '-')} this week: H1 "${params.brandName} vs ${comp.name}", 6 FAQs, and a one-line "choose us if...".`,
     );
-    if (cite?.domains?.length) {
+    if (cite?.domains?.length && (cite.sourceRefs?.length ?? 0) > 0) {
       moves.push(
         `Get listed where AI already cites ${comp.name}: ${cite.domains.slice(0, 3).join(', ')}. One guest post, directory listing, or original stat on those domains.`,
       );
@@ -204,22 +205,38 @@ export function computeClosestCompetitors(params: {
 }
 
 export function enrichReportDerived(report: IntelligenceReport): IntelligenceReport {
-  return {
-    ...report,
-    brandCategory: report.brandCategory ?? computeBrandCategory(report),
-    mentionBreakdown: report.mentionBreakdown ?? computeMentionBreakdown(report.research),
-    llmStrategies: report.llmStrategies?.length ? report.llmStrategies : computeLlmStrategies(report),
-    closestCompetitors:
-      report.closestCompetitors?.length
-        ? report.closestCompetitors
-        : computeClosestCompetitors({
-            brandName: report.brandName,
-            competitors: report.competitors || [],
-            coOccurrence: report.coOccurrence || [],
-            citationGaps: report.citationGaps || [],
-            losingQueries: report.losingQueries || [],
-            ownMentionRate: mentionRate(report.research),
-            hasComparisonPage: Boolean(report.crawl?.hasComparison),
-          }),
-  };
+  const { grade: _droppedGrade, ...base } = report as IntelligenceReport & { grade?: string };
+  void _droppedGrade;
+  const competitors = (base.competitors || []).filter(
+    (c) => validateCompetitorName(c.name, c.mentions, base.brandName).ok,
+  );
+  const closestCompetitors = computeClosestCompetitors({
+    brandName: base.brandName,
+    competitors,
+    coOccurrence: base.coOccurrence || [],
+    citationGaps: base.citationGaps || [],
+    losingQueries: base.losingQueries || [],
+    ownMentionRate: mentionRate(base.research),
+    hasComparisonPage: Boolean(base.crawl?.hasComparison),
+  });
+  const howToDoBetter = keepCompleteRecommendations(base.howToDoBetter || []);
+  const citationGaps = (base.citationGaps || []).filter(
+    (g) => g.domains.length > 0 && (g.sourceRefs?.length ?? 0) > 0,
+  );
+  return sanitizeDeep({
+    ...base,
+    competitors,
+    howToDoBetter,
+    citationGaps,
+    coverage: {
+      ...base.coverage,
+      competitorsTracked: competitors.length,
+      platformsUsable: base.coverage.platformsUsable ?? base.platformPerformance.length,
+      platformsQueried: base.coverage.platformsQueried ?? base.coverage.platformsTested,
+    },
+    brandCategory: base.brandCategory ?? computeBrandCategory(base),
+    mentionBreakdown: base.mentionBreakdown ?? computeMentionBreakdown(base.research),
+    llmStrategies: base.llmStrategies?.length ? base.llmStrategies : computeLlmStrategies(base),
+    closestCompetitors,
+  });
 }

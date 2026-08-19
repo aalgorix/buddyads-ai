@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@buddyads/db": "workspace:*",
+    "@buddyads/report-pdf": "workspace:*",
     "@elevenlabs/react": "^1.12.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

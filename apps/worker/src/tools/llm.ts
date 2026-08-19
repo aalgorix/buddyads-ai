@@ -1,5 +1,6 @@
 import { env, getModels, modelsForPlatforms } from '../env';
 import { platformFromModel } from './platforms';
+import { METHODOLOGY } from '../config/methodology';
 
 export type LlmAnswer = {
   model: string;
@@ -108,7 +109,7 @@ export async function queryAllModels(params: {
     }));
   }
 
-  const concurrency = Math.max(1, Number(env('LLM_RESEARCH_CONCURRENCY', '3')) || 3);
+  const concurrency = Math.max(1, Number(env('LLM_RESEARCH_CONCURRENCY', String(METHODOLOGY.llmConcurrencyDefault))) || METHODOLOGY.llmConcurrencyDefault);
   const out: LlmAnswer[] = [];
   for (let i = 0; i < models.length; i += concurrency) {
     const batch = models.slice(i, i + concurrency);

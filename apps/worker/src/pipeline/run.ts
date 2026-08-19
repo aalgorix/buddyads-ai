@@ -12,6 +12,7 @@ import { generateResearchPrompts } from '../llm-research/prompts';
 import { buildEvidence, buildKnowledgeGraph, parseResearch } from '../llm-research/graph';
 import { listResearchProviders, queryProvider } from '../providers/query';
 import { env } from '../env';
+import { METHODOLOGY, resolveQueryCount } from '../config/methodology';
 
 export type Intake = {
   companyName?: string | null;
@@ -95,7 +96,7 @@ function toCrawlResult(multi: ResearchCrawlResult, websiteUrl: string): CrawlRes
     h1,
     h2,
     wordCount: allText.split(/\s+/).filter(Boolean).length,
-    hasFaq: hasFaqSchema || /faq|frequently asked/i.test(allText) || questionHeadings >= 3,
+    hasFaq: /faq|frequently asked/i.test(allText) || questionHeadings >= 3,
     hasSchema: allTypes.length > 0,
     brandGuess,
     linkCount: internalLinkCount + externalLinkCount,
@@ -167,20 +168,23 @@ export async function runVisibilityPipeline(params: {
     pageTitles: multi.pages.map((p) => p.title || '').filter(Boolean),
     faqHeadings,
     topics: [...new Set(geo.map((g) => g.primaryTopic))],
+    maxCount: METHODOLOGY.maxQueryCount,
   });
 
   await params.onStep('research');
   const providers = listResearchProviders(params.intake?.aiPlatforms);
   const research: LlmAnswer[] = [];
-  const maxPrompts = Math.max(4, Math.min(10, Number(env('RESEARCH_MAX_PROMPTS', '8')) || 8));
+  const maxPrompts = resolveQueryCount(env('RESEARCH_MAX_PROMPTS', String(METHODOLOGY.defaultQueryCount)));
   const selected = prompts.slice(0, maxPrompts);
-  const concurrency = Math.max(1, Number(env('LLM_RESEARCH_CONCURRENCY', '3')) || 3);
+  const concurrency = Math.max(1, Number(env('LLM_RESEARCH_CONCURRENCY', String(METHODOLOGY.llmConcurrencyDefault))) || METHODOLOGY.llmConcurrencyDefault);
+  const delayMs = Math.max(0, Number(env('RESEARCH_INTER_PROMPT_DELAY_MS', String(METHODOLOGY.interPromptDelayMs))) || 0);
 
   if (!providers.length) {
     notes.push('No LLM providers configured; research skipped.');
   } else {
     notes.push(`Research providers: ${providers.map((p) => `${p.label}${p.native ? ' (native)' : ''}`).join(', ')}.`);
-    for (const prompt of selected) {
+    notes.push(`Query count: ${selected.length} (configurable RESEARCH_MAX_PROMPTS, default ${METHODOLOGY.defaultQueryCount}, clamp ${METHODOLOGY.minQueryCount}–${METHODOLOGY.maxQueryCount}). Concurrency ${concurrency}. Retry ${METHODOLOGY.providerRetryAttempts}x with backoff.`);
+    for (const [pi, prompt] of selected.entries()) {
       for (let i = 0; i < providers.length; i += concurrency) {
         const batch = providers.slice(i, i + concurrency);
         const hits = await Promise.all(
@@ -210,6 +214,9 @@ export async function runVisibilityPipeline(params: {
           }),
         );
         research.push(...hits);
+      }
+      if (delayMs && pi < selected.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
       await params.onStep('research', prompt.prompt.slice(0, 80));
     }

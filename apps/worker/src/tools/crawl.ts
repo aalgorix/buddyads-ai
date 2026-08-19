@@ -157,7 +157,6 @@ export async function crawlWebsite(websiteUrl: string): Promise<CrawlResult> {
   const hasLocalBusiness = /localbusiness/i.test(typeBlob);
 
   const hasFaq =
-    hasFaqSchema ||
     /faq|frequently asked/i.test(text) ||
     questionHeadings >= 3;
 
